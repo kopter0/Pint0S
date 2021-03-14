@@ -13,3 +13,5 @@ done
 DIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )"
 
 PATH=$DIR/utils:$PATH
+
+echo "activation done"
