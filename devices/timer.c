@@ -7,6 +7,7 @@
 #include "threads/io.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "threads/malloc.h"
 
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -20,6 +21,9 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
+/* list for sleeping managment*/
+static struct list sleeping_list;
+
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -28,6 +32,7 @@ static intr_handler_func timer_interrupt;
 static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
+bool less_helper(const struct list_elem *a, const struct list_elem *b, void* aux);
 
 /* Sets up the 8254 Programmable Interval Timer (PIT) to
    interrupt PIT_FREQ times per second, and registers the
@@ -41,8 +46,9 @@ timer_init (void) {
 	outb (0x43, 0x34);    /* CW: counter 0, LSB then MSB, mode 2, binary. */
 	outb (0x40, count & 0xff);
 	outb (0x40, count >> 8);
-
 	intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+
+	list_init(&sleeping_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -87,14 +93,38 @@ timer_elapsed (int64_t then) {
 	return timer_ticks () - then;
 }
 
+
+bool 
+less_helper(const struct list_elem *a,const struct list_elem *b, void *aux) {
+	uint64_t a_val = list_entry(a, struct sti, elem)->wake_up;
+	uint64_t b_val = list_entry(b, struct sti, elem)->wake_up;
+	return a_val < b_val;
+}
+
 /* Suspends execution for approximately TICKS timer ticks. */
 void
 timer_sleep (int64_t ticks) {
 	int64_t start = timer_ticks ();
 
 	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+
+	struct thread *cur_thread = thread_current();
+
+	if (timer_elapsed (start) < ticks){
+		struct sti *cur_sti = (struct sti*)malloc(sizeof(struct sti));
+		cur_sti->thread=cur_thread;
+		cur_sti->wake_up=start+ticks;
+		cur_sti->elem = *(struct list_elem*)malloc(sizeof(struct list_elem));
+		list_insert_ordered(&sleeping_list, &cur_sti->elem, *less_helper, (void*)cur_sti);
+		intr_disable();
+		thread_block();
+	}
+	intr_enable();
+
+	// while(timer_elapsed (start) < ticks){
+	// 	thread_yield();
+	// }
+
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -125,6 +155,17 @@ timer_print_stats (void) {
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
+
+
+	while (list_size(&sleeping_list) > 0 &&
+				list_entry(list_front(&sleeping_list), struct sti, elem)->wake_up <= ticks){
+		// printf("Must wake up at %lld\n", ticks);
+		thread_unblock(
+			list_entry(list_pop_front(&sleeping_list), struct sti, elem) -> thread
+		);
+	}
+
+
 	thread_tick ();
 }
 
