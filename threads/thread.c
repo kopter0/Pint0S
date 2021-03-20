@@ -207,6 +207,10 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 
+	if (thread_current()->priority < priority){
+		thread_yield();
+	}
+
 	return tid;
 }
 
@@ -312,6 +316,7 @@ thread_yield (void) {
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+	thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -411,6 +416,14 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->magic = THREAD_MAGIC;
 }
 
+
+bool
+priority_biggest(const struct list_elem *a, const struct list_elem *b, void *aux){
+	int priority_a = list_entry(a, struct thread, elem) -> priority;
+	int priority_b = list_entry(b, struct thread, elem) -> priority;
+	return priority_a > priority_b;
+}
+
 /* Chooses and returns the next thread to be scheduled.  Should
    return a thread from the run queue, unless the run queue is
    empty.  (If the running thread can continue running, then it
@@ -418,10 +431,27 @@ init_thread (struct thread *t, const char *name, int priority) {
    idle_thread. */
 static struct thread *
 next_thread_to_run (void) {
+
 	if (list_empty (&ready_list))
 		return idle_thread;
-	else
-		return list_entry (list_pop_front (&ready_list), struct thread, elem);
+	else{
+
+		list_sort(&ready_list, *priority_biggest, (void*)&ready_list);
+
+		size_t list_len = list_size(&ready_list);
+		struct thread* arr[list_len];
+		struct list_elem *e = list_begin(&ready_list);
+		int idx = 0;
+		for (e; e!= list_end(&ready_list); e=list_next(e)){
+			arr[idx++] = list_entry(e, struct thread, elem);
+		}
+
+		struct thread *next_thread = list_entry(list_pop_front(&ready_list), struct thread, elem);
+		// enum thread_status next_thread_status = next_thread->status;
+		// enum thread_status curr_thread_status = thread_current()->status; 
+
+		return next_thread;
+	}
 }
 
 /* Use iretq to launch the thread */
