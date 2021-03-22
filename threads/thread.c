@@ -239,7 +239,6 @@ thread_block (void) {
 void
 thread_unblock (struct thread *t) {
 	enum intr_level old_level;
-
 	ASSERT (is_thread (t));
 
 	old_level = intr_disable ();
@@ -435,21 +434,9 @@ next_thread_to_run (void) {
 	if (list_empty (&ready_list))
 		return idle_thread;
 	else{
-
-		list_sort(&ready_list, *priority_biggest, (void*)&ready_list);
-
-		size_t list_len = list_size(&ready_list);
-		struct thread* arr[list_len];
-		struct list_elem *e = list_begin(&ready_list);
-		int idx = 0;
-		for (e; e!= list_end(&ready_list); e=list_next(e)){
-			arr[idx++] = list_entry(e, struct thread, elem);
-		}
-
+		list_sort(&ready_list, *priority_biggest, NULL);
+		int64_t len = list_size(&ready_list);
 		struct thread *next_thread = list_entry(list_pop_front(&ready_list), struct thread, elem);
-		// enum thread_status next_thread_status = next_thread->status;
-		// enum thread_status curr_thread_status = thread_current()->status; 
-
 		return next_thread;
 	}
 }
@@ -617,4 +604,16 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
+}
+
+void get_list_info(struct list *l){
+	size_t list_len = list_size(l);
+	struct thread* arr[list_len];
+	struct list_elem *e = list_begin(l);
+	int idx = 0;
+	for (e; e!= list_end(l); e=list_next(e)){
+		arr[idx++] = list_entry(e, struct thread, elem);
+	}
+
+	int break_here = 0;
 }

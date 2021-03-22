@@ -2,3 +2,4 @@ threads/build/*
 .vscode/*
 test.cpp
 test
+.gdb_history
