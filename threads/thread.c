@@ -204,6 +204,8 @@ thread_create (const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	t->lock_holder=NULL;
+
 	/* Add to run queue. */
 	thread_unblock (t);
 
@@ -314,8 +316,39 @@ thread_yield (void) {
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) {
-	thread_current ()->priority = new_priority;
+	
+	if (!thread_mlfqs){
+		int max_donated = PRI_MIN;
+		if (!list_empty(&thread_current()->maecenes_list)){
+			max_donated = list_entry(list_min(&thread_current()->maecenes_list, *priority_biggest_maecenes, NULL), struct thread, m_elem) -> priority;	
+		}
+		thread_current ()->default_priority = new_priority;
+		thread_current ()->priority = max_donated > new_priority ? max_donated : new_priority;
+	}
+	else {
+		thread_current() -> priority = new_priority;
+		thread_current() -> default_priority = new_priority;
+	}
 	thread_yield();
+}
+
+void 
+reccursive_priority_update( struct thread *t) {
+	if (t == NULL){
+		return;
+	}
+	int max_donated = PRI_MIN;
+	if (!list_empty(&t->maecenes_list)){
+		max_donated = list_entry(list_min(&t->maecenes_list, *priority_biggest_maecenes, NULL), struct thread, m_elem) -> priority;	
+	}
+	if (max_donated > t->priority){
+		t->priority = max_donated;
+	}
+	else if (max_donated < t->default_priority){
+		t->priority = t->default_priority;
+	}
+	// printf("%s has %d\n", t->name, t->default_priority);
+	reccursive_priority_update(t->lock_holder);
 }
 
 /* Returns the current thread's priority. */
@@ -413,13 +446,25 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+
+	//initiate list iff not mlfqs
+	list_init(&t->maecenes_list);
+	t->default_priority = priority;
+	
 }
 
 
 bool
-priority_biggest(const struct list_elem *a, const struct list_elem *b, void *aux){
+priority_biggest(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
 	int priority_a = list_entry(a, struct thread, elem) -> priority;
 	int priority_b = list_entry(b, struct thread, elem) -> priority;
+	return priority_a > priority_b;
+}
+
+bool
+priority_biggest_maecenes(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+	int priority_a = list_entry(a, struct thread, m_elem) -> priority;
+	int priority_b = list_entry(b, struct thread, m_elem) -> priority;
 	return priority_a > priority_b;
 }
 
@@ -435,7 +480,6 @@ next_thread_to_run (void) {
 		return idle_thread;
 	else{
 		list_sort(&ready_list, *priority_biggest, NULL);
-		int64_t len = list_size(&ready_list);
 		struct thread *next_thread = list_entry(list_pop_front(&ready_list), struct thread, elem);
 		return next_thread;
 	}
@@ -604,16 +648,4 @@ allocate_tid (void) {
 	lock_release (&tid_lock);
 
 	return tid;
-}
-
-void get_list_info(struct list *l){
-	size_t list_len = list_size(l);
-	struct thread* arr[list_len];
-	struct list_elem *e = list_begin(l);
-	int idx = 0;
-	for (e; e!= list_end(l); e=list_next(e)){
-		arr[idx++] = list_entry(e, struct thread, elem);
-	}
-
-	int break_here = 0;
 }
