@@ -21,7 +21,7 @@
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
-/* list for sleeping managment*/
+/* list for sleeping management*/
 static struct list sleeping_list;
 
 /* Number of loops per timer tick.
@@ -94,6 +94,7 @@ timer_elapsed (int64_t then) {
 }
 
 
+
 bool 
 less_helper(const struct list_elem *a,const struct list_elem *b, void *aux) {
 	uint64_t a_val = list_entry(a, struct sti, elem)->wake_up;
@@ -152,11 +153,13 @@ timer_print_stats (void) {
 }
 
 /* Timer interrupt handler. */
+/* 1. priority is recalculated once in every 4th clock tick for ALL THREADS
+   2. Recent_cpu is incremented on every clock tick for RUNNING THREAD
+   3. Once per second recent_cpu is recalculated for EVERY THREAD
+   4. Once per second update load_avg */
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
-
-
 	while (list_size(&sleeping_list) > 0 &&
 				list_entry(list_front(&sleeping_list), struct sti, elem)->wake_up <= ticks){
 		// printf("Must wake up at %lld\n", ticks);
@@ -165,8 +168,17 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 		);
 	}
 
-
 	thread_tick ();
+	if (thread_mlfqs){
+		increment_recent_cpu();
+		if (timer_ticks() % TIMER_FREQ == 0){
+			calculate_load_avg();
+			recent_cpu_change();
+			priority_change();
+		}else if (timer_ticks() % 4 == 0){
+			priority_change();
+		}
+	}
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
@@ -185,6 +197,7 @@ too_many_loops (unsigned loops) {
 	/* If the tick count changed, we iterated too long. */
 	barrier ();
 	return start != ticks;
+	
 }
 
 /* Iterates through a simple loop LOOPS times, for implementing
