@@ -92,6 +92,11 @@ struct thread {
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
 
+	int default_priority;
+	struct list maecenes_list; 
+	struct list_elem m_elem;
+	struct thread *lock_holder;
+
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 	struct list_elem all_t;               /*Element of all_threads*/
@@ -146,6 +151,8 @@ int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
 
+
+void reccursive_priority_update(struct thread *t);
 bool priority_biggest(const struct list_elem *a, const struct list_elem *b, void *aux);
 void thread_calculate_priority(struct thread *t);
 void thread_calculate_recent_cpu(struct thread *t);
@@ -153,7 +160,7 @@ void calculate_load_avg(void);
 void increment_recent_cpu(void);
 void priority_change(void);
 void recent_cpu_change(void);
+bool priority_biggest_maecenes(const struct list_elem *a, const struct list_elem *b, void *aux);
 
-void get_list_info(struct list *l);
 
 #endif /* threads/thread.h */

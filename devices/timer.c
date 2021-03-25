@@ -96,7 +96,7 @@ timer_elapsed (int64_t then) {
 
 
 bool 
-less_helper(const struct list_elem *a,const struct list_elem *b, void *aux) {
+less_helper(const struct list_elem *a,const struct list_elem *b, void *aux UNUSED) {
 	uint64_t a_val = list_entry(a, struct sti, elem)->wake_up;
 	uint64_t b_val = list_entry(b, struct sti, elem)->wake_up;
 	return a_val < b_val;
