@@ -28,6 +28,7 @@
    After 40 seconds, load average=29.88.
    After 42 seconds, load average=30.87.
    After 44 seconds, load average=31.84.
+   
    After 46 seconds, load average=32.77.
    After 48 seconds, load average=33.67.
    After 50 seconds, load average=34.54.

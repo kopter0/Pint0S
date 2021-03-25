@@ -379,13 +379,8 @@ thread_set_nice (int nice UNUSED) {
 	thread_current()-> nice = nice; 
 	thread_calculate_priority(thread_current());
 	// add case when the priority is no longer the highest
-	if (list_empty (&ready_list)){
-		return;
-	}
 	
-	if (thread_current()->priority < list_entry(list_begin(&ready_list), struct thread, elem)->priority){
-		thread_yield();
-	}
+	thread_yield();
 }
 
 /* Returns the current thread's nice value. */
@@ -430,7 +425,15 @@ void calculate_load_avg(void){
 		if (thread_current() != idle_thread){
 			ready_threads++;
 	    }
-		load_avg = sum_fp(mul_fp(div_fp_int(convert_to_fp(59), 60), load_avg), mul_fp_int(div_fp_int(convert_to_fp(1), 60), ready_threads)); 	
+
+		int div_int1 = div_fp_int(convert_to_fp(59), 60);
+		int mul_load_avg = mul_fp(div_int1, load_avg);
+		int div_int2 = div_fp_int(convert_to_fp(1), 60);
+		int mul_ready_threads = mul_fp_int(div_int2, ready_threads);
+		int result = sum_fp(mul_load_avg, mul_ready_threads);
+		printf("%d\n", result);
+		load_avg = result;
+	//	load_avg = sum_fp(mul_fp(div_fp_int(convert_to_fp(59), 60), load_avg), mul_fp_int(div_fp_int(convert_to_fp(1), 60), ready_threads)); 	
 	
 }
 
