@@ -23,7 +23,7 @@ int convert_to_int_zero(int x){
 int convert_to_int_nearest(int x){
     if (x >= 0){
         return (x + f / 2) / f;
-    }else if (x <= 0){
+    }else{
         return (x - f / 2) / f;
     }   
 }
@@ -45,7 +45,7 @@ int sub_fp_int(int x, int n){
 }
 
 int mul_fp(int x, int y){
-    return ((int32_t) x) * y / f;
+    return ((int64_t) x) * y / f;
 }
 
 int mul_fp_int(int x, int n){
@@ -53,7 +53,7 @@ int mul_fp_int(int x, int n){
 }
 
 int div_fp(int x, int y){
-    return ((int32_t) x) * f / y;
+    return ((int64_t) x) * f / y;
 }
 
 int div_fp_int(int x, int n){

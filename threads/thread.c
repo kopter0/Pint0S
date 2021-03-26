@@ -425,13 +425,14 @@ void calculate_load_avg(void){
 		if (thread_current() != idle_thread){
 			ready_threads++;
 	    }
-
+		int ready_threads_converted = convert_to_fp(ready_threads);
 		int div_int1 = div_fp_int(convert_to_fp(59), 60);
 		int mul_load_avg = mul_fp(div_int1, load_avg);
+
 		int div_int2 = div_fp_int(convert_to_fp(1), 60);
-		int mul_ready_threads = mul_fp_int(div_int2, ready_threads);
+		int mul_ready_threads = mul_fp(div_int2, ready_threads_converted);
 		int result = sum_fp(mul_load_avg, mul_ready_threads);
-		printf("%d\n", result);
+	//	printf("%d\n", result);
 		load_avg = result;
 	//	load_avg = sum_fp(mul_fp(div_fp_int(convert_to_fp(59), 60), load_avg), mul_fp_int(div_fp_int(convert_to_fp(1), 60), ready_threads)); 	
 	
@@ -446,7 +447,7 @@ void increment_recent_cpu(void){
 
 void priority_change(void){
 	struct list_elem *i = list_begin (&all_threads);
-
+ 
 	while (i != list_end(&all_threads)){
 		struct thread *t = list_entry(i, struct thread, all_t);
 		thread_calculate_priority(t);
