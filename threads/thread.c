@@ -336,7 +336,7 @@ thread_set_priority (int new_priority) {
 	if (!thread_mlfqs){
 		int max_donated = PRI_MIN;
 		if (!list_empty(&thread_current()->maecenes_list)){
-			max_donated = list_entry(list_min(&thread_current()->maecenes_list, *priority_biggest_maecenes, NULL), struct thread, m_elem) -> priority;	
+			max_donated = list_entry(list_min(&thread_current()->maecenes_list, priority_biggest_maecenes, NULL), struct thread, m_elem) -> priority;	
 		}
 		thread_current ()->default_priority = new_priority;
 		thread_current ()->priority = max_donated > new_priority ? max_donated : new_priority;
@@ -365,7 +365,7 @@ reccursive_priority_update( struct thread *t) {
 	// }
 
 	if (!list_empty(&t->maecenes_list)){
-		max_donated = list_entry(list_min(&t->maecenes_list, *priority_biggest_maecenes, NULL), struct thread, m_elem) -> priority;	
+		max_donated = list_entry(list_min(&t->maecenes_list, priority_biggest_maecenes, NULL), struct thread, m_elem) -> priority;	
 	}
 	if (max_donated > t->default_priority){
 		t->priority = max_donated;
@@ -583,7 +583,7 @@ next_thread_to_run (void) {
 		// 	// reccursive_priority_update(list_entry(e, struct thread, elem));
 		// }
 		
-		list_sort(&ready_list, *priority_biggest, NULL);
+		list_sort(&ready_list, priority_biggest, NULL);
 		struct thread *next_thread = list_entry(list_pop_front(&ready_list), struct thread, elem);
 		return next_thread;
 	}

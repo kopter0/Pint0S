@@ -41,6 +41,7 @@ process_init (void) {
 tid_t
 process_create_initd (const char *file_name) {
 	char *fn_copy;
+	printf("INITD: %s\n", file_name);
 	tid_t tid;
 
 	/* Make a copy of FILE_NAME.
@@ -163,7 +164,7 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
-	printf("%s\n", *file_name);
+	printf("PROCESS NAME IS %s\n", *file_name);
 	bool success;
 
 	/* We cannot use the intr_frame in the thread structure.
