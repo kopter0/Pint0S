@@ -55,6 +55,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+bool system_initialized;
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -98,6 +99,7 @@ void
 thread_init (void) {
 	ASSERT (intr_get_level () == INTR_OFF);
 
+	system_initialized = false;
 	/* Reload the temporal gdt for the kernel
 	 * This gdt does not include the user context.
 	 * The kernel will rebuild the gdt with user context, in gdt_init (). */
@@ -119,8 +121,7 @@ thread_init (void) {
 	initial_thread->status = THREAD_RUNNING;
 	initial_thread->tid = allocate_tid ();
 	
-	
-
+	system_initialized = true;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -353,16 +354,25 @@ reccursive_priority_update( struct thread *t) {
 		return;
 	}
 	int max_donated = PRI_MIN;
+
+	// int ls = list_size(&t->maecenes_list);
+	// struct thread* arr[ls];
+	// struct list_elem *e = list_begin(&t->maecenes_list);
+	// int i = 0;
+	// for(; e != list_end(&t->maecenes_list); e=list_next(e)){
+	// 	arr[i] = list_entry(e, struct thread, m_elem);
+	// 	i++;
+	// }
+
 	if (!list_empty(&t->maecenes_list)){
 		max_donated = list_entry(list_min(&t->maecenes_list, *priority_biggest_maecenes, NULL), struct thread, m_elem) -> priority;	
 	}
-	if (max_donated > t->priority){
+	if (max_donated > t->default_priority){
 		t->priority = max_donated;
 	}
-	else if (max_donated < t->default_priority){
+	else {
 		t->priority = t->default_priority;
 	}
-	// printf("%s has %d\n", t->name, t->default_priority);
 	reccursive_priority_update(t->lock_holder);
 }
 
@@ -568,6 +578,11 @@ next_thread_to_run (void) {
 	if (list_empty (&ready_list))
 		return idle_thread;
 	else{
+		// struct list_elem *e = list_begin(&ready_list);
+		// for (; e != list_end(&ready_list);e=list_next(e)){
+		// 	// reccursive_priority_update(list_entry(e, struct thread, elem));
+		// }
+		
 		list_sort(&ready_list, *priority_biggest, NULL);
 		struct thread *next_thread = list_entry(list_pop_front(&ready_list), struct thread, elem);
 		return next_thread;

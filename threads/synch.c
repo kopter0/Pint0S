@@ -67,9 +67,6 @@ sema_down (struct semaphore *sema) {
 	old_level = intr_disable ();
 	while (sema->value == 0) {
 		list_push_back (&sema->waiters, &thread_current ()->elem);
-		if (!thread_mlfqs){
-			reccursive_priority_update(thread_current()->lock_holder);
-		}
 		thread_block ();
 	}
 
@@ -115,12 +112,13 @@ sema_up (struct semaphore *sema) {
 	old_level = intr_disable ();
 
 	if (!list_empty (&sema->waiters)){
-		struct list_elem *max = list_min(&sema->waiters, *priority_biggest, NULL);
-		list_remove(max);
+		list_sort(&sema->waiters, *priority_biggest, NULL);
+		struct list_elem *max = list_pop_front(&sema->waiters);
 		thread_unblock (list_entry(max, struct thread, elem));
 	}
 	sema->value++;
 	intr_set_level (old_level);
+	// if (system_initialized)
 	thread_yield();
 }
 
@@ -197,21 +195,20 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
-	if (!thread_mlfqs){
+	if (!thread_mlfqs && system_initialized){
 		// not mlfqs
 		if (!sema_try_down(&lock->semaphore)){
 			// donate here
 			list_push_back( &lock->holder->maecenes_list, &thread_current()->m_elem );
 			thread_current() -> lock_holder = lock->holder;
-			sema_down (&lock->semaphore);
+			reccursive_priority_update(lock->holder);
+			sema_down(&lock->semaphore);
 		}
 	}
-
 	else {
 		sema_down(&lock->semaphore);
-	}
 
-	//
+	}
 	lock->holder = thread_current ();
 }
 
@@ -244,7 +241,7 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
-	if (!thread_mlfqs){
+	if (!thread_mlfqs && system_initialized){
 		if (!list_empty(&lock->semaphore.waiters)){
 			struct list_elem *e = list_begin(&lock->semaphore.waiters);
 			for(; e != list_end(&lock->semaphore.waiters); e = list_next(e)){
