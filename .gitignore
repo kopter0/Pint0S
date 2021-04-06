@@ -4,3 +4,4 @@ userprog/build/*
 test.cpp
 test
 .gdb_history
+userprog/command_to_run_test_case

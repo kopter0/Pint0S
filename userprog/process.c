@@ -41,7 +41,6 @@ process_init (void) {
 tid_t
 process_create_initd (const char *file_name) {
 	char *fn_copy;
-	printf("INITD: %s\n", file_name);
 	tid_t tid;
 
 	/* Make a copy of FILE_NAME.
@@ -66,7 +65,6 @@ initd (void *f_name) {
 #endif
 
 	process_init ();
-
 	if (process_exec (f_name) < 0)
 		PANIC("Fail to launch initd\n");
 	NOT_REACHED ();
@@ -164,7 +162,16 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
-	printf("PROCESS NAME IS %s\n", *file_name);
+	char *prog_name = palloc_get_page(0);
+	int i = 0;
+for (;; i++){
+		if (file_name[i] == ' ' || file_name[i] == '\0'){
+			prog_name[i + 1] = '\0';
+			break;
+		}
+		prog_name[i] = file_name[i];
+	}
+
 	bool success;
 
 	/* We cannot use the intr_frame in the thread structure.
@@ -179,7 +186,8 @@ process_exec (void *f_name) {
 	process_cleanup ();
 
 	/* And then load the binary */
-	success = load (file_name, &_if);
+	// success = load (file_name, &_if);
+	success = load(prog_name, &_if);
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
@@ -206,6 +214,13 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+
+	while (true)
+	{
+		true;
+	}
+	
+
 	return -1;
 }
 
