@@ -41,6 +41,130 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	// TODO: Your implementation goes here.
-	printf ("system call!\n");
+	printf ("system call number %d!\n", f->R.rax);
+
+	switch (f->R.rax)
+	{
+	case SYS_HALT:
+		halt();
+		break;
+	
+	case SYS_EXIT:
+		exit((int)f->R.rdi);
+		break;
+
+	// case SYS_FORK:
+		
+	// 	break;
+	
+	case SYS_EXEC:
+		exec((char *)f->R.rax);
+		break;
+
+	case SYS_CREATE:
+		create((const char*)f->R.rdi, (unsigned int)f->R.rsi);
+		break;
+
+	case SYS_REMOVE:
+		remove((const char*) f->R.rdi);
+		break;
+
+	case SYS_OPEN:
+		open((const char*) f->R.rdi);
+		break;
+
+	case SYS_FILESIZE:
+		filesize((int) f->R.rdi);
+		break;
+
+	case SYS_READ:
+		read((int) f->R.rdi, (void *) f->R.rsi, (unsigned int) f->R.rdx);
+		break;
+
+	case SYS_WRITE:
+		write((int) f->R.rdi, (void *) f->R.rsi, (unsigned int) f->R.rdx);
+		break;
+	
+	case SYS_SEEK:
+		seek((int) f->R.rdi, (unsigned int) f->R.rsi);
+		break;
+
+	case SYS_TELL:
+		tell((int) f->R.rdi);
+		break;
+	
+	case SYS_CLOSE:
+		close((int) f->R.rdi);
+		break;
+
+	default:
+		printf("NOT implemented %d\n", f->R.rax);
+		break;
+	}
+
 	thread_exit ();
+}
+
+void
+halt (void) {
+	printf("SYSCALL_HALT\n");
+}
+
+void 
+exit (int status) {
+	printf("SYSCALL_EXIT\n");
+}
+
+// pid_t
+// fork (const char *thread_name){
+
+// }
+
+int
+exec (const char *file) {
+	printf("SYSCALL_EXEC\n");
+}
+
+int wait (pid_t) {
+	printf("SYSCALL_WAIT\n");
+}
+
+bool 
+create (const char *file, unsigned initial_size) {
+	printf("SYSCALL_CREATE\n");
+}
+
+bool
+remove (const char *file){
+	printf("SYSCALL_REMOVE\n");
+}
+
+int
+open (const char *file) {
+	printf("SYSCALL_OPEN\n");
+}
+
+int filesize (int fd) {
+	printf("SYSCALL_FILESIZE\n");
+}
+
+int read (int fd, void *buffer, unsigned length){
+	printf("SYSCALL_READ\n");
+}
+
+int write (int fd, const void *buffer, unsigned length){
+	printf("SYSCALL_WRITE\n");
+
+}
+
+void seek (int fd, unsigned position) {
+	printf("SYSCALL_SEEK\n");
+}
+
+unsigned tell (int fd) {
+	printf("SYSCALL_TELL\n");
+}
+
+void close (int fd) {
+	printf("SYSCALL_CLOSE\n");
 }
