@@ -12,7 +12,7 @@
 
 #include "threads/vaddr.h"
 
-
+int open_files = 0;
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
