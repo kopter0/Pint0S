@@ -466,7 +466,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	if_ -> rsp -= 8;
 	*(void **) if_ -> rsp = (void *)0;
-	//hex_dump();
+	hex_dump();
 	success = true;
 
 done:
