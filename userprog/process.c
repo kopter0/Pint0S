@@ -162,17 +162,6 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
-	// char *prog_name = palloc_get_page(0);
-	// int i = 0;
-	// for (;; i++){
-	// 	if (file_name[i] == ' ' || file_name[i] == '\0'){
-	// 		prog_name[i + 1] = '\0';
-	// 		break;
-	// 	}
-	// 	prog_name[i] = file_name[i];
-	// }
-
-
 	bool success;
 
 	/* We cannot use the intr_frame in the thread structure.
