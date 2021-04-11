@@ -195,6 +195,7 @@ process_exec (void *f_name) {
 	if (!success)
 		return -1;
 
+
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -347,9 +348,10 @@ load (const char *file_name, struct intr_frame *if_) {
 	off_t file_ofs;
 	bool success = false;
 	int i;
-
+	char *args[10];
 	char *save_ptr;
 	char *prog_name = strtok_r (file_name, " ", &save_ptr);
+	args[0] = prog_name;
 
 
 	/* Allocate and activate page directory. */
@@ -441,14 +443,41 @@ load (const char *file_name, struct intr_frame *if_) {
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
 
-	char *token;
-	int argc = -1;
-	for (; token != NULL; argc++){
-		token = strtok_r (NULL, " ", &save_ptr);
-		printf ("'%s'\n", token);
+	
+	int argc = 1;
+	for (; args[argc] != NULL; argc++){
+		args[argc] = strtok_r (NULL, " ", &save_ptr);
+		//printf ("'%s'\n", token);
 	}
 	printf("argc is %d\n", argc);
 
+	 for (int i = argc - 1; i >= 0; i--) {
+    	if_->rsp -= strlen (args[i]) + 1;
+      	strlcpy (if_->rsp, args[i], strlen (args[i]) + 1);
+      	args[i] = if_->rsp;
+	 }
+
+	 while ((uint64_t) if_->rsp & 7){
+		 if_ -> rsp -=1;
+		 *(uint8_t *) if_ -> rsp = (uint8_t) 0;
+	 } 
+
+	 if_ -> rsp -= 8;
+	 *(char **) if_ -> rsp = (char *)0;
+	 for (int i = argc - 1; i >= 0; i--) {
+		 if_ -> rsp -= 8;
+		 *(char **)if_ -> rsp = args[i];
+	 }
+
+	if_ -> rsp -= 8;
+	*(char ***) if_ -> rsp = (char **)(if_ -> rsp + 8);
+
+	if_ -> rsp -= 8;
+	*(int *) if_ -> rsp = argc;
+
+	if_ -> rsp -= 8;
+	*(void **) if_ -> rsp = (void *)0;
+	//hex_dump();
 	success = true;
 
 done:
