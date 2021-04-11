@@ -108,11 +108,13 @@ syscall_handler (struct intr_frame *f UNUSED) {
 void
 halt (void) {
 	printf("SYSCALL_HALT\n");
+	power_off();
 }
 
 void 
 exit (int status) {
-	printf("SYSCALL_EXIT\n");
+	printf("SYSCALL_EXIT\n");	
+	thread_exit();
 }
 
 // pid_t
@@ -123,25 +125,38 @@ exit (int status) {
 int
 exec (const char *file) {
 	printf("SYSCALL_EXEC\n");
+	//return process_exec (file);
 }
 
 int wait (pid_t) {
 	printf("SYSCALL_WAIT\n");
+//	return process_wait(pid_t);
 }
 
 bool 
 create (const char *file, unsigned initial_size) {
 	printf("SYSCALL_CREATE\n");
+	int result = filesys_create(file, initial_size);
+	if (result == 1){
+		return true;
+	}
+	return false;
 }
 
 bool
 remove (const char *file){
 	printf("SYSCALL_REMOVE\n");
+	int result = filesys_remove(file);
+	if (result == 1){
+		return true;
+	}
+	return false;
 }
 
 int
 open (const char *file) {
 	printf("SYSCALL_OPEN\n");
+	//filesys_open(file);
 }
 
 int filesize (int fd) {

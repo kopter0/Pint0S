@@ -131,7 +131,7 @@ __do_fork (void *aux) {
 	current->pml4 = pml4_create();
 	if (current->pml4 == NULL)
 		goto error;
-
+    
 	process_activate (current);
 #ifdef VM
 	supplemental_page_table_init (&current->spt);
@@ -222,6 +222,7 @@ process_wait (tid_t child_tid UNUSED) {
 	
 
 	return -1;
+	//return status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -232,7 +233,7 @@ process_exit (void) {
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-
+	printf("%s: exit(%d)\n", curr -> name, curr -> status);
 	process_cleanup ();
 }
 
@@ -345,7 +346,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	off_t file_ofs;
 	bool success = false;
 	int i;
-
+    
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
@@ -358,7 +359,8 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: open failed\n", file_name);
 		goto done;
 	}
-
+	/* ADDED*/
+	file_deny_write(file);
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -438,6 +440,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 done:
 	/* We arrive here whether the load is successful or not. */
+	// ADD file_allow_write(file);
 	file_close (file);
 	return success;
 }
