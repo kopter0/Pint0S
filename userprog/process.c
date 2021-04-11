@@ -162,15 +162,16 @@ error:
 int
 process_exec (void *f_name) {
 	char *file_name = f_name;
-	char *prog_name = palloc_get_page(0);
-	int i = 0;
-for (;; i++){
-		if (file_name[i] == ' ' || file_name[i] == '\0'){
-			prog_name[i + 1] = '\0';
-			break;
-		}
-		prog_name[i] = file_name[i];
-	}
+	// char *prog_name = palloc_get_page(0);
+	// int i = 0;
+	// for (;; i++){
+	// 	if (file_name[i] == ' ' || file_name[i] == '\0'){
+	// 		prog_name[i + 1] = '\0';
+	// 		break;
+	// 	}
+	// 	prog_name[i] = file_name[i];
+	// }
+
 
 	bool success;
 
@@ -187,7 +188,7 @@ for (;; i++){
 
 	/* And then load the binary */
 	// success = load (file_name, &_if);
-	success = load(prog_name, &_if);
+	success = load(file_name, &_if);
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
@@ -217,7 +218,7 @@ process_wait (tid_t child_tid UNUSED) {
 
 	while (true)
 	{
-		true;
+		thread_yield();
 	}
 	
 
@@ -346,6 +347,10 @@ load (const char *file_name, struct intr_frame *if_) {
 	bool success = false;
 	int i;
 
+	char *save_ptr;
+	char *prog_name = strtok_r (file_name, " ", &save_ptr);
+
+
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create ();
 	if (t->pml4 == NULL)
@@ -353,9 +358,9 @@ load (const char *file_name, struct intr_frame *if_) {
 	process_activate (thread_current ());
 
 	/* Open executable file. */
-	file = filesys_open (file_name);
+	file = filesys_open (prog_name);
 	if (file == NULL) {
-		printf ("load: %s: open failed\n", file_name);
+		printf ("load: %s: open failed\n", prog_name);
 		goto done;
 	}
 
@@ -367,7 +372,7 @@ load (const char *file_name, struct intr_frame *if_) {
 			|| ehdr.e_version != 1
 			|| ehdr.e_phentsize != sizeof (struct Phdr)
 			|| ehdr.e_phnum > 1024) {
-		printf ("load: %s: error loading executable\n", file_name);
+		printf ("load: %s: error loading executable\n", prog_name);
 		goto done;
 	}
 
@@ -433,6 +438,14 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	/* TODO: Your code goes here.
 	 * TODO: Implement argument passing (see project2/argument_passing.html). */
+
+	char *token;
+	int argc = -1;
+	for (; token != NULL; argc++){
+		token = strtok_r (NULL, " ", &save_ptr);
+		printf ("'%s'\n", token);
+	}
+	printf("argc is %d\n", argc);
 
 	success = true;
 
