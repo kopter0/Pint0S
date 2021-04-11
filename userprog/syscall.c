@@ -10,6 +10,8 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 
+#include "threads/vaddr.h"
+
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -120,7 +122,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	}
 
-	thread_exit ();
+	// thread_exit ();
 }
 
 void
@@ -190,11 +192,18 @@ int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 int write (int fd UNUSED, const void *buffer UNUSED, unsigned length UNUSED){
 	char *f_name = thread_current() -> name;
 	printf("SYSCALL_WRITE with fd: %d, from %s\n", fd, f_name);
-	
-	struct file *f = filesys_open(&f_name);
+	struct file *f;
+	if (fd == 1) {
+		putbuf((char*)buffer, (size_t)length);
+		return length;	
+	}
+	else {
+		f = filesys_open(&f_name);
+	}
 	if (f) {
-		printf("file opened\n");
-		return file_write(f, buffer, length);
+		int wrote = file_write(f, buffer, length);
+		printf("file opened and %d wrote\n", wrote);
+		return wrote;
 	}
 	else {
 		printf("file doesnot exist\n");
