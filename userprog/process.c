@@ -434,17 +434,19 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	
 	int argc = 1;
-	for (; args[argc] != NULL; argc++){
+	for (;; argc++){
 		args[argc] = strtok_r (NULL, " ", &save_ptr);
-		//printf ("'%s'\n", token);
+		if (args[argc] == NULL)
+			break;
 	}
-	printf("argc is %d\n", argc);
 
 	 for (int i = argc - 1; i >= 0; i--) {
     	if_->rsp -= strlen (args[i]) + 1;
       	strlcpy (if_->rsp, args[i], strlen (args[i]) + 1);
       	args[i] = if_->rsp;
 	 }
+
+		printf("argc: %d, args starts in %x\n", argc, args);
 
 	 while ((uint64_t) if_->rsp & 7){
 		 if_ -> rsp -=1;
@@ -458,16 +460,19 @@ load (const char *file_name, struct intr_frame *if_) {
 		 *(char **)if_ -> rsp = args[i];
 	 }
 
-	if_ -> rsp -= 8;
-	*(char ***) if_ -> rsp = (char **)(if_ -> rsp + 8);
+	// if_ -> rsp -= 8;
+	// *(char ***) if_ -> rsp = (char **)(if_ -> rsp + 8);
 
-	if_ -> rsp -= 8;
-	*(int *) if_ -> rsp = argc;
+	// if_ -> rsp -= 8;
+	// *(int *) if_ -> R.rdi = argc;
 
 	if_ -> rsp -= 8;
 	*(void **) if_ -> rsp = (void *)0;
-	hex_dump();
 	success = true;
+
+	// for (int i = 0; i < 20; i++){
+	// 	printf("%x: %x\n", (if_ -> rsp + i * 8), *(uint64_t*)(if_ -> rsp + i * 8));
+	// }
 
 done:
 	/* We arrive here whether the load is successful or not. */
