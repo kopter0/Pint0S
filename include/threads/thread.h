@@ -18,6 +18,12 @@ enum thread_status {
 	THREAD_DYING        /* About to be destroyed. */
 };
 
+struct file_table_elem {
+		int fd;
+		struct file *file;
+		struct list_elem element;
+}
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -113,6 +119,7 @@ struct thread {
 #endif
 
 	/* Owned by thread.c. */
+	struct list file_table;
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
 };

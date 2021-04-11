@@ -355,8 +355,7 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: open failed\n", prog_name);
 		goto done;
 	}
-	/* ADDED*/
-	file_deny_write(file);
+
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -446,7 +445,6 @@ load (const char *file_name, struct intr_frame *if_) {
       	args[i] = if_->rsp;
 	 }
 
-		printf("argc: %d, args starts in %x\n", argc, args);
 
 	 while ((uint64_t) if_->rsp & 7){
 		 if_ -> rsp -=1;
@@ -460,23 +458,17 @@ load (const char *file_name, struct intr_frame *if_) {
 		 *(char **)if_ -> rsp = args[i];
 	 }
 
-	// if_ -> rsp -= 8;
-	// *(char ***) if_ -> rsp = (char **)(if_ -> rsp + 8);
-
-	// if_ -> rsp -= 8;
-	// *(int *) if_ -> R.rdi = argc;
 
 	if_ -> rsp -= 8;
 	*(void **) if_ -> rsp = (void *)0;
-	success = true;
 
-	// for (int i = 0; i < 20; i++){
-	// 	printf("%x: %x\n", (if_ -> rsp + i * 8), *(uint64_t*)(if_ -> rsp + i * 8));
-	// }
+	if_ -> R.rdi = argc;
+	if_ -> R.rsi = if_ -> rsp + 8;
+
+	success = true;
 
 done:
 	/* We arrive here whether the load is successful or not. */
-	// ADD file_allow_write(file);
 	file_close (file);
 	return success;
 }

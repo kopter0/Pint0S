@@ -548,6 +548,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 	//initiate list iff not mlfqs
 	list_init(&t->maecenes_list);
+	list_init(&t -> file_table);
 	t->default_priority = priority;
 	
 }

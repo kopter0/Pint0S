@@ -14,6 +14,7 @@
 
 #define DEBUG
 
+int open_files = 0;
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
@@ -260,7 +261,7 @@ void close (int fd UNUSED) {
 }
 
 struct file * get_file_by_fd(int fd){
-	
+
 } 
 
 int get_new_fd(){
