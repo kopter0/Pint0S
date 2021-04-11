@@ -12,6 +12,7 @@
 
 #include "threads/vaddr.h"
 
+#define DEBUG
 
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
@@ -30,6 +31,10 @@ int write (int fd, const void *buffer, unsigned length);
 void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
+
+int debug_msg(const char *format, ...);
+struct file * get_file_by_fd(int fd);
+int get_new_fd();
 
 /* System call.
  *
@@ -60,8 +65,8 @@ syscall_init (void) {
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
-	// TODO: Your implementation goes here.
-	printf ("system call number %lld!\n", f->R.rax);
+
+	debug_msg("system call number %lld!\n", f->R.rax);
 
 	switch (f->R.rax)
 	{
@@ -118,7 +123,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 
 	default:
-		printf("NOT implemented %lld\n", f->R.rax);
+		debug_msg("NOT IMPLEMENTED %lld\n", f->R.rax);
 		break;
 	}
 
@@ -127,13 +132,13 @@ syscall_handler (struct intr_frame *f UNUSED) {
 
 void
 halt (void) {
-	printf("SYSCALL_HALT\n");
+	debug_msg("SYSCALL_HALT\n");
 	power_off();
 }
 
 void 
 exit (int status) {
-	printf("SYSCALL_EXIT\n");	
+	debug_msg("SYSCALL_EXIT\n");	
 	thread_exit();
 }
 
@@ -144,7 +149,7 @@ exit (int status) {
 
 int
 exec (const char *file UNUSED) {
-	printf("SYSCALL_EXEC\n");
+	debug_msg("SYSCALL_EXEC\n");
 	return -1;
 }
 
@@ -154,72 +159,127 @@ exec (const char *file UNUSED) {
 
 bool 
 create (const char *file UNUSED, unsigned initial_size UNUSED) {
-	printf("SYSCALL_CREATE\n");
-	int result = filesys_create(file, initial_size);
-	if (result == 1){
-		return true;
-	}
-	return false;
+	debug_msg("SYSCALL_CREATE\n");
+	return filesys_create(file, initial_size);
 }
 
 bool
 remove (const char *file UNUSED){
-	printf("SYSCALL_REMOVE\n");
-	int result = filesys_remove(file);
-	if (result == 1){
-		return true;
-	}
-	return false;
+	debug_msg("SYSCALL_REMOVE\n");
+	return filesys_remove(file);
 }
 
 int
 open (const char *file UNUSED) {
-	printf("SYSCALL_OPEN\n");
-	//filesys_open(file);
+	debug_msg("SYSCALL_OPEN\n");
+	struct file *f = filesys_open(file);
+
+	return get_new_fd(file);
+
 	return -1;
 }
 
 int filesize (int fd UNUSED) {
-	printf("SYSCALL_FILESIZE\n");
-	return -1;
+	debug_msg("SYSCALL_FILESIZE\n");
+
+	return file_length(get_file_by_fd(fd));
+	
+	// return -1;
 }
 
 int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
-	printf("SYSCALL_READ\n");
-	return -1;
+	debug_msg("SYSCALL_READ\n");
+
+	if (fd == 0){
+		char *char_buffer = buffer;
+		for (int i = 0; i < length; i++){
+			char_buffer[i] = input_getc();
+		}
+		return length;
+	}
+
+	struct file *f = get_file_by_fd(fd);
+	if (!f) {
+		return -1;
+	}
+
+	return file_read(f, buffer, length);
+
+	// return -1;
 }
 
 int write (int fd UNUSED, const void *buffer UNUSED, unsigned length UNUSED){
 	char *f_name = thread_current() -> name;
-	printf("SYSCALL_WRITE with fd: %d, from %s\n", fd, f_name);
-	struct file *f;
+	debug_msg("SYSCALL_WRITE with fd: %d, from %s\n", fd, f_name);
+	
 	if (fd == 1) {
 		putbuf((char*)buffer, (size_t)length);
 		return length;	
 	}
-	else {
-		f = filesys_open(&f_name);
-	}
-	if (f) {
-		int wrote = file_write(f, buffer, length);
-		printf("file opened and %d wrote\n", wrote);
-		return wrote;
-	}
-	else {
-		printf("file doesnot exist\n");
+	struct file *f = get_file_by_fd(fd);
+	if (!f)
 		return -1;
-	}
+
+	return file_write(f, buffer, length);
+
+	// return -1;
 }
 
 void seek (int fd UNUSED, unsigned position UNUSED) {
-	printf("SYSCALL_SEEK\n");
+	debug_msg("SYSCALL_SEEK\n");
+
+	struct file *f = get_file_by_fd(fd);
+	if (!f)
+		return -1;
+
+	file_seek(f, position);
+
 }
 
 unsigned tell (int fd UNUSED) {
-	printf("SYSCALL_TELL\n");
-	return 0;
+	debug_msg("SYSCALL_TELL\n");
+
+	struct file *f = get_file_by_fd(fd);
+	if (!f)
+		return -1;
+
+	return file_tell(f);
+
+	// return 0;
 }
 
 void close (int fd UNUSED) {
-	printf("SYSCALL_CLOSE\n");
+	debug_msg("SYSCALL_CLOSE\n");
+
+	struct file *f = get_file_by_fd(fd);
+	if (!f)
+		return -1;
+
+	file_close(f);
+
+}
+
+struct file * get_file_by_fd(int fd){
+	
+} 
+
+int get_new_fd(){
+
+}
+
+int
+debug_msg (const char *format, ...) {
+	#ifdef DEBUG
+	va_list args;
+	int retval;
+
+	va_start (args, format);
+	retval = vprintf (format, args);
+	va_end (args);
+
+	return retval;
+	#else
+	return 0;
+	#endif
+	
 }
