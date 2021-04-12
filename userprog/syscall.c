@@ -11,10 +11,12 @@
 #include "filesys/filesys.h"
 
 #include "threads/vaddr.h"
-
+#include "threads/malloc.h"
+#include "threads/init.h"
+#include "devices/input.h"
 #define DEBUG
 
-int open_files = 0;
+// int open_files = 0;
 void syscall_entry (void);
 void syscall_handler (struct intr_frame *);
 
@@ -35,7 +37,7 @@ void close (int fd);
 
 int debug_msg(const char *format, ...);
 struct file * get_file_by_fd(int fd);
-int get_new_fd();
+int get_new_fd(struct file *);
 
 /* System call.
  *
@@ -66,9 +68,6 @@ syscall_init (void) {
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
-
-	debug_msg("system call number %lld!\n", f->R.rax);
-
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
@@ -138,7 +137,7 @@ halt (void) {
 }
 
 void 
-exit (int status) {
+exit (int status UNUSED) {
 	debug_msg("SYSCALL_EXIT\n");	
 	thread_exit();
 }
@@ -173,17 +172,18 @@ remove (const char *file UNUSED){
 int
 open (const char *file UNUSED) {
 	debug_msg("SYSCALL_OPEN\n");
+	debug_msg("is file in userspace %d\n", is_user_vaddr(file));
 	struct file *f = filesys_open(file);
 
-	return get_new_fd(file);
+	return get_new_fd(f);
 
-	return -1;
+	// return -1;
 }
 
 int filesize (int fd UNUSED) {
 	debug_msg("SYSCALL_FILESIZE\n");
 
-	return file_length(get_file_by_fd(fd));
+	return (int)file_length(get_file_by_fd(fd));
 	
 	// return -1;
 }
@@ -193,7 +193,7 @@ int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 
 	if (fd == 0){
 		char *char_buffer = buffer;
-		for (int i = 0; i < length; i++){
+		for (int i = 0; i < (signed)length; i++){
 			char_buffer[i] = input_getc();
 		}
 		return length;
@@ -203,7 +203,7 @@ int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 	if (!f) {
 		return -1;
 	}
-
+	
 	return file_read(f, buffer, length);
 
 	// return -1;
@@ -231,7 +231,7 @@ void seek (int fd UNUSED, unsigned position UNUSED) {
 
 	struct file *f = get_file_by_fd(fd);
 	if (!f)
-		return -1;
+		return;
 
 	file_seek(f, position);
 
@@ -254,18 +254,29 @@ void close (int fd UNUSED) {
 
 	struct file *f = get_file_by_fd(fd);
 	if (!f)
-		return -1;
+		return;
 
 	file_close(f);
 
 }
 
 struct file * get_file_by_fd(int fd){
-
+	struct list_elem *e = list_begin(&thread_current()->file_table);
+	for (; e!=list_end(&thread_current()->file_table);e=list_next(e)){
+		struct file_table_elem *fte = list_entry(e, struct file_table_elem, element); 
+		if (fte -> fd == fd)
+			return fte->file;
+	}
+	return NULL;
 } 
 
-int get_new_fd(){
-
+int get_new_fd(struct file *f){
+	int fd = thread_current()->next_fd++;
+	struct file_table_elem *fte = calloc(1, sizeof(struct file_table_elem));
+	fte->fd = fd;
+	fte->file = f; 
+	list_push_back(&thread_current()->file_table, &fte -> element);
+	return fd; 
 }
 
 int

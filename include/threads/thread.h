@@ -22,7 +22,7 @@ struct file_table_elem {
 		int fd;
 		struct file *file;
 		struct list_elem element;
-}
+};
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -119,6 +119,7 @@ struct thread {
 #endif
 
 	/* Owned by thread.c. */
+	int next_fd;
 	struct list file_table;
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
