@@ -1,6 +1,6 @@
 #ifndef THREADS_THREAD_H
 #define THREADS_THREAD_H
-
+#include "threads/synch.h"
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
@@ -23,6 +23,7 @@ struct file_table_elem {
 		struct file *file;
 		struct list_elem element;
 };
+
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -97,15 +98,21 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
-
+	int exit_status; /*exit status: syscall.c*/
 	int default_priority;
 	struct list maecenes_list; 
 	struct list_elem m_elem;
 	struct thread *lock_holder;
+	struct thread *parent;
+
+	/*semaphores*/
+	struct semaphore sema_exit;
+	struct semaphore sema_exec;
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 	struct list_elem all_t;               /*Element of all_threads*/
+	struct list_elem child_elem;
 	int nice;
 	int recent_cpu; 
 
@@ -121,6 +128,7 @@ struct thread {
 	/* Owned by thread.c. */
 	int next_fd;
 	struct list file_table;
+	struct list children;
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
 };
@@ -160,6 +168,8 @@ int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
 
+/* */
+struct thread *get_thread_by_tid(tid_t tid);
 
 void reccursive_priority_update(struct thread *t);
 bool priority_biggest(const struct list_elem *a, const struct list_elem *b, void *aux);

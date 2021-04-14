@@ -177,13 +177,15 @@ process_exec (void *f_name) {
 
 	/* And then load the binary */
 	// success = load (file_name, &_if);
+	// sema_down(&(thread_current() -> sema_exec));
 	success = load(file_name, &_if);
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	if (!success)
 		return -1;
-
+		
+	// sema_up(&(thread_current() -> sema_exec));
 
 	/* Start switched process. */
 	do_iret (&_if);
@@ -205,15 +207,22 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
+	struct thread *t = get_thread_by_tid(child_tid);
 
-	while (true)
-	{
-		thread_yield();
+	if (t -> parent != thread_current()){
+		return -1;
 	}
-	
+	if (t == NULL){
+		return -1;
+	}
+	sema_down (&(t -> sema_exit));
+	int status = t -> exit_status;
 
-	return -1;
-	//return status;
+	// if (status != 0){
+	// 	return -1;
+	// }
+
+	return status;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
