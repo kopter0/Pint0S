@@ -321,9 +321,10 @@ thread_tid (void) {
 void
 thread_exit (void) {
 	ASSERT (!intr_context ());
-	list_remove(&(thread_current()->all_t));
+	// list_remove(&(thread_current()->all_t));
 	struct thread *parent = thread_current() -> parent;
-	list_remove(&(parent -> child_elem));
+	if (parent)
+		list_remove(&(thread_current() -> child_elem));
 	sema_up(&(thread_current() -> sema_exit));
 #ifdef USERPROG
 	process_exit ();
