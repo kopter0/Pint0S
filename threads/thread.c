@@ -226,7 +226,30 @@ thread_create (const char *name, int priority,
 		thread_yield();
 	}
 
+	// child & parent
+	t -> parent = thread_current();
+	t -> child_elem.next = NULL;
+	t -> child_elem.prev = NULL;
+	
+	struct list *children_list =&(thread_current() -> children);
+	list_push_back(children_list, &(t -> child_elem));
+
+	//semaphore init
+	sema_init (&(t -> sema_exit), 0);
+	sema_init(&(t -> sema_exec), 0);
 	return tid;
+}
+
+/*get thrread by tid*/
+struct thread *get_thread_by_tid(tid_t tid){
+	struct list_elem *e = list_begin(&all_threads);
+	for (;e != list_end(&all_threads); e = list_next(e)){
+		struct thread *t = list_entry(e, struct thread, all_t);
+		if (t -> tid == tid){
+			return t;
+		}
+	}
+	return NULL;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -299,6 +322,9 @@ void
 thread_exit (void) {
 	ASSERT (!intr_context ());
 	list_remove(&(thread_current()->all_t));
+	struct thread *parent = thread_current() -> parent;
+	list_remove(&(parent -> child_elem));
+	sema_up(&(thread_current() -> sema_exit));
 #ifdef USERPROG
 	process_exit ();
 #endif
@@ -552,6 +578,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 
 	list_init(&t -> file_table);
 	t->next_fd = 2;
+
+	list_init(&t -> children);
 }
 
 

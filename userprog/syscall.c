@@ -139,7 +139,8 @@ halt (void) {
 
 void 
 exit (int status UNUSED) {
-	debug_msg("SYSCALL_EXIT\n");	
+	debug_msg("SYSCALL_EXIT\n");
+	thread_current() -> exit_status = status;	
 	thread_exit();
 }
 
@@ -151,12 +152,13 @@ exit (int status UNUSED) {
 int
 exec (const char *file UNUSED) {
 	debug_msg("SYSCALL_EXEC\n");
-	return -1;
+	return process_exec(file);
 }
 
-// int wait (pid_t) {
-// 	printf("SYSCALL_WAIT\n");
-// }
+int wait (pid_t pid) {
+	printf("SYSCALL_WAIT\n");
+	return process_wait(pid);
+}
 
 bool 
 create (const char *file UNUSED, unsigned initial_size UNUSED) {
