@@ -68,6 +68,7 @@ syscall_init (void) {
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
+	debug_msg("SYSCALL %d\n", f->R.rax);
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
@@ -212,15 +213,26 @@ int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 int write (int fd UNUSED, const void *buffer UNUSED, unsigned length UNUSED){
 	char *f_name = thread_current() -> name;
 	debug_msg("SYSCALL_WRITE with fd: %d, from %s\n", fd, f_name);
+	debug_msg("Buffer in user space %d\n", is_user_vaddr(buffer));
 	
 	if (fd == 1) {
-		putbuf((char*)buffer, (size_t)length);
+		for (int i = 0; i < (int) length; i++){
+			if (is_user_vaddr(buffer + i)){
+				putchar(*((char*)(buffer + i)));
+			}
+			else {
+				debug_msg("NOT IN ADDRESS\n");
+				return -1;
+			}
+		}
+		// putbuf((char*)buffer, (size_t)length);
 		return length;	
 	}
 	struct file *f = get_file_by_fd(fd);
 	if (!f)
 		return -1;
 
+	debug_msg("END OF WRITE\n");
 	return file_write(f, buffer, length);
 
 	// return -1;
