@@ -9,7 +9,7 @@
 #include "intrinsic.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
-
+#include "userprog/process.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "threads/init.h"
@@ -22,9 +22,9 @@ void syscall_handler (struct intr_frame *);
 
 void halt (void);
 void exit (int status);
-// pid_t fork (const char *thread_name);
+pid_t fork (const char *thread_name);
 int exec (const char *file);
-// int wait (pid_t);
+int wait (pid_t);
 bool create (const char *file, unsigned initial_size);
 bool remove (const char *file);
 int open (const char *file);
@@ -68,7 +68,7 @@ syscall_init (void) {
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
-	debug_msg("SYSCALL %d\n", f->R.rax);
+	debug_msg("SYSCALL %d from %d \n", f->R.rax, thread_current() -> tid);
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
@@ -79,12 +79,16 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		exit((int)f->R.rdi);
 		break;
 
-	// case SYS_FORK:
-		
-	// 	break;
+	case SYS_FORK:
+		f ->R.rax = (uint64_t) fork((char *) f -> R.rdi);	
+		break;
 	
 	case SYS_EXEC:
 		f->R.rax = (uint64_t) exec((char *)f->R.rax);
+		break;
+
+	case SYS_WAIT:
+		f->R.rax = (uint64_t) wait((pid_t)f -> R.rdi);
 		break;
 
 	case SYS_CREATE:
@@ -144,10 +148,10 @@ exit (int status UNUSED) {
 	thread_exit();
 }
 
-// pid_t
-// fork (const char *thread_name){
-
-// }
+pid_t
+fork (const char *thread_name){
+	return process_fork(thread_name, &thread_current() -> tf);
+}
 
 int
 exec (const char *file UNUSED) {
