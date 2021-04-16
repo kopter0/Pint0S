@@ -14,7 +14,7 @@
 #include "threads/malloc.h"
 #include "threads/init.h"
 #include "devices/input.h"
-#define DEBUG
+// #define DEBUG
 
 // int open_files = 0;
 void syscall_entry (void);
@@ -167,6 +167,10 @@ int wait (pid_t pid) {
 bool 
 create (const char *file UNUSED, unsigned initial_size UNUSED) {
 	debug_msg("SYSCALL_CREATE\n");
+	if (!pml4_get_page(thread_current() -> pml4, file)){
+		debug_msg("Not in writeble\n");
+		exit(-1);
+	}
 	return filesys_create(file, initial_size);
 }
 
@@ -178,13 +182,13 @@ remove (const char *file UNUSED){
 
 int
 open (const char *file UNUSED) {
-	debug_msg("SYSCALL_OPEN\n");
-	debug_msg("is file in userspace %d\n", is_user_vaddr(file));
+	debug_msg("SYSCALL_OPEN %s, %s\n", file, (const char *)pml4_get_page(thread_current()->pml4, file));
 	struct file *f = filesys_open(file);
-
+	if (!f) {
+		debug_msg("File could not be opened\n");
+		exit(-1);
+	}
 	return get_new_fd(f);
-
-	// return -1;
 }
 
 int filesize (int fd UNUSED) {
@@ -197,6 +201,11 @@ int filesize (int fd UNUSED) {
 
 int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 	debug_msg("SYSCALL_READ\n");
+
+	if (!pml4_get_page(thread_current() -> pml4, buffer)){
+		debug_msg("Not readable\n");
+		exit(-1);
+	}
 
 	if (fd == 0){
 		char *char_buffer = buffer;
@@ -218,27 +227,24 @@ int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 
 int write (int fd UNUSED, const void *buffer UNUSED, unsigned length UNUSED){
 	char *f_name = thread_current() -> name;
-	debug_msg("SYSCALL_WRITE with fd: %d, from %s\n", fd, f_name);
-	debug_msg("Buffer in user space %d\n", is_user_vaddr(buffer));
+	debug_msg("SYSCALL_WRITE w ith fd: %d, from %s\n", fd, f_name);
 	
+	if (!pml4_get_page(thread_current() -> pml4, buffer)){
+		debug_msg("Not in writeble\n");
+		exit(-1);
+	}
+
 	if (fd == 1) {
-		for (int i = 0; i < (int) length; i++){
-			if (is_user_vaddr(buffer + i)){
-				putchar(*((char*)(buffer + i)));
-			}
-			else {
-				debug_msg("NOT IN ADDRESS\n");
-				return -1;
-			}
-		}
-		// putbuf((char*)buffer, (size_t)length);
+		putbuf((char*)buffer, (size_t)length);
 		return length;	
 	}
 	struct file *f = get_file_by_fd(fd);
-	if (!f)
+	if (!f){
+		debug_msg("File not found\n");
 		return -1;
 
-	debug_msg("END OF WRITE\n");
+	}
+	
 	return file_write(f, buffer, length);
 
 	// return -1;
@@ -275,6 +281,7 @@ void close (int fd UNUSED) {
 		return;
 
 	file_close(f);
+	remove_fd(fd);
 
 }
 
@@ -295,6 +302,16 @@ int get_new_fd(struct file *f){
 	fte->file = f; 
 	list_push_back(&thread_current()->file_table, &fte -> element);
 	return fd; 
+}
+
+void remove_fd(int fd){
+	struct list_elem *e = list_begin(&thread_current()->file_table);
+	for (; e!=list_end(&thread_current()->file_table);e=list_next(e)){
+		struct file_table_elem *fte = list_entry(e, struct file_table_elem, element); 
+		if (fte -> fd == fd)
+			break;
+	}
+	list_remove(e);
 }
 
 int

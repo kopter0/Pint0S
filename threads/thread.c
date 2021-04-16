@@ -324,8 +324,8 @@ thread_exit (void) {
 	// list_remove(&(thread_current()->all_t));
 	struct thread *parent = thread_current() -> parent;
 	if (parent)
-		list_remove(&(thread_current() -> child_elem));
-	sema_up(&(thread_current() -> sema_exit));
+		list_remove(&thread_current() -> child_elem);
+	sema_up(&thread_current() -> sema_exit);
 #ifdef USERPROG
 	process_exit ();
 #endif
