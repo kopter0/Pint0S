@@ -222,21 +222,16 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 
+	list_push_back(&thread_current() -> children, &t -> child_info.child_elem);
+	sema_init(&t->child_info.child_exit_sema, 0);
+	sema_init(&t->child_info.child_load_sema, 0);
+
+
+
 	if (thread_current()->priority < priority){
 		thread_yield();
 	}
 
-	// child & parent
-	t -> parent = thread_current();
-	t -> child_elem.next = NULL;
-	t -> child_elem.prev = NULL;
-	
-	struct list *children_list =&(thread_current() -> children);
-	list_push_back(children_list, &(t -> child_elem));
-
-	//semaphore init
-	sema_init (&(t -> sema_exit), 0);
-	sema_init(&(t -> sema_exec), 0);
 	return tid;
 }
 
@@ -321,11 +316,14 @@ thread_tid (void) {
 void
 thread_exit (void) {
 	ASSERT (!intr_context ());
-	// list_remove(&(thread_current()->all_t));
-	struct thread *parent = thread_current() -> parent;
-	if (parent)
-		list_remove(&thread_current() -> child_elem);
-	sema_up(&thread_current() -> sema_exit);
+
+	list_remove(&thread_current()->all_t);
+
+	if (thread_current() -> child_info.child_elem.next)
+		list_remove(&thread_current() -> child_info.child_elem);
+	
+	sema_up(&thread_current() -> child_info.child_exit_sema);
+
 #ifdef USERPROG
 	process_exit ();
 #endif
@@ -581,6 +579,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->next_fd = 2;
 
 	list_init(&t -> children);
+	t -> child_info.child_thread = t;
 }
 
 

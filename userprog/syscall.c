@@ -14,6 +14,7 @@
 #include "threads/malloc.h"
 #include "threads/init.h"
 #include "devices/input.h"
+// #include "palloc.h"
 // #define DEBUG
 
 // int open_files = 0;
@@ -84,7 +85,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 	
 	case SYS_EXEC:
-		f->R.rax = (uint64_t) exec((char *)f->R.rax);
+		f->R.rax = (uint64_t) exec((char *)f->R.rdi);
 		break;
 
 	case SYS_WAIT:
@@ -144,7 +145,7 @@ halt (void) {
 void 
 exit (int status UNUSED) {
 	debug_msg("SYSCALL_EXIT\n");
-	thread_current() -> exit_status = status;	
+	thread_current() -> child_info.child_exit_status = status;	
 	thread_exit();
 }
 
@@ -156,7 +157,10 @@ fork (const char *thread_name){
 int
 exec (const char *file UNUSED) {
 	debug_msg("SYSCALL_EXEC\n");
-	return process_exec(file);
+	void *f = pml4_get_page(thread_current() -> pml4, file);
+	if (!f)
+		exit(-1);
+	process_exec(f);
 }
 
 int wait (pid_t pid) {

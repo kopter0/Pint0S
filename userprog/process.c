@@ -26,6 +26,7 @@ static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 static void __do_fork (void *);
+bool is_child(struct thread *parent, tid_t child_tid);
 
 /* General process initializer for initd and other process. */
 static void
@@ -172,9 +173,13 @@ error:
  * Returns -1 on fail. */
 int
 process_exec (void *f_name) {
-	char *file_name = f_name;
+	// char *file_name = palloc_get_page(0); 
+	// strcpy(file_name, f_name);
+	// char *file_name = f_name; 
+	char *file_name = palloc_get_page(0);
+	strlcpy(file_name, f_name, strlen(f_name) + 1);
 	bool success;
-
+ 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
 	 * it stores the execution information to the member. */
@@ -193,6 +198,7 @@ process_exec (void *f_name) {
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
+	sema_up(&thread_current() -> child_info.child_load_sema);
 	if (!success)
 		return -1;
 		
@@ -220,21 +226,31 @@ process_wait (tid_t child_tid UNUSED) {
 	 * XXX:       implementing the process_wait. */
 	struct thread *t = get_thread_by_tid(child_tid);
 
-	if (t -> parent != thread_current()){
+	if (t == NULL)
 		return -1;
-	}
-	if (t == NULL){
+
+	// wait till child loads
+	sema_down(&t->child_info.child_load_sema);
+
+	if (!is_child(thread_current(), child_tid))
 		return -1;
-	}
-	sema_down (&(t -> sema_exit));
-	int status = t -> exit_status;
-	list_remove(&t -> child_elem);
-	// if (status != 0){
-	// 	return -1;
-	// }
+
+	sema_down (&t -> child_info.child_exit_sema);
+	int status = t -> child_info.child_exit_status;
 
 	return status;
 }
+
+bool is_child(struct thread *parent, tid_t child_tid){
+	struct list_elem *e = list_begin(&parent->children);
+	for (; e != list_end(&parent->children); e=list_next(e)){
+		struct thread *t = list_entry(e, struct child_info, child_elem) -> child_thread; 
+		if (t ->tid == child_tid)
+			return true;
+	}
+	return false;
+}
+
 
 /* Exit the process. This function is called by thread_exit (). */
 void
@@ -244,7 +260,7 @@ process_exit (void) {
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	printf("%s: exit(%d)\n", curr -> name, curr -> exit_status);
+	printf("%s: exit(%d)\n", curr -> name, curr -> child_info.child_exit_status);
 	process_cleanup ();
 }
 

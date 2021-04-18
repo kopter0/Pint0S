@@ -24,6 +24,15 @@ struct file_table_elem {
 		struct list_elem element;
 };
 
+struct child_info {
+	int child_exit_status;
+	// struct semaphore child_sema;
+	struct semaphore child_exit_sema;
+	struct semaphore child_load_sema;
+	struct thread *child_thread;
+	struct list_elem child_elem;
+};
+
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
@@ -98,23 +107,23 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
-	int exit_status; /*exit status: syscall.c*/
+	
 	int default_priority;
 	struct list maecenes_list; 
 	struct list_elem m_elem;
 	struct thread *lock_holder;
-	struct thread *parent;
 
-	/*semaphores*/
-	struct semaphore sema_exit;
-	struct semaphore sema_exec;
+	
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 	struct list_elem all_t;               /*Element of all_threads*/
-	struct list_elem child_elem;
 	int nice;
 	int recent_cpu; 
+
+
+	struct child_info child_info;
+	struct list children;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -128,7 +137,6 @@ struct thread {
 	/* Owned by thread.c. */
 	int next_fd;
 	struct list file_table;
-	struct list children;
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
 };
