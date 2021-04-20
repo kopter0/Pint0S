@@ -23,7 +23,7 @@ void syscall_handler (struct intr_frame *);
 
 void halt (void);
 void exit (int status);
-pid_t fork (const char *thread_name);
+pid_t fork (const char *thread_name, struct intr_frame *if_);
 int exec (const char *file);
 int wait (pid_t);
 bool create (const char *file, unsigned initial_size);
@@ -39,6 +39,7 @@ void close (int fd);
 int debug_msg(const char *format, ...);
 struct file * get_file_by_fd(int fd);
 int get_new_fd(struct file *);
+void remove_fd(int fd);
 
 /* System call.
  *
@@ -81,7 +82,7 @@ syscall_handler (struct intr_frame *f UNUSED) {
 		break;
 
 	case SYS_FORK:
-		f ->R.rax = (uint64_t) fork((char *) f -> R.rdi);	
+		f ->R.rax = (uint64_t) fork((char *) f -> R.rdi, f);	
 		break;
 	
 	case SYS_EXEC:
@@ -150,8 +151,12 @@ exit (int status UNUSED) {
 }
 
 pid_t
-fork (const char *thread_name){
-	return process_fork(thread_name, &thread_current() -> tf);
+fork (const char *thread_name, struct intr_frame *if_){
+	// tid_t tid = process_fork(thread_name, if_);
+	tid_t tid = process_fork(thread_name, if_);
+	sema_down(&get_thread_by_tid(tid) -> child_info.child_load_sema);
+	list_push_back(&thread_current() -> children, &get_thread_by_tid(tid) -> child_info.child_elem); 
+	return tid;
 }
 
 int
@@ -164,7 +169,7 @@ exec (const char *file UNUSED) {
 }
 
 int wait (pid_t pid) {
-	printf("SYSCALL_WAIT\n");
+	debug_msg("SYSCALL_WAIT\n");
 	return process_wait(pid);
 }
 

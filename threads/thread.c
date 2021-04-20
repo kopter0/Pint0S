@@ -317,7 +317,7 @@ void
 thread_exit (void) {
 	ASSERT (!intr_context ());
 
-	list_remove(&thread_current()->all_t);
+	// list_remove(&thread_current()->all_t);
 
 	if (thread_current() -> child_info.child_elem.next)
 		list_remove(&thread_current() -> child_info.child_elem);

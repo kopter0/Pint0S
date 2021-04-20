@@ -16,4 +16,16 @@ test_main (void)
     msg ("child run");
     exit(81);
   }
+
+  // msg("My fork");
+  // pid = fork("child");
+  // msg("Pid is %d", pid);
+  // if (pid){
+  //   while (true)
+  //   {
+      
+  //   }
+    
+  // }
+  // exit(0);
 }

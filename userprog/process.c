@@ -25,7 +25,9 @@
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
-static void __do_fork (void **);
+// static void __do_fork (void **);
+static void __do_fork (void *);
+
 bool is_child(struct thread *parent, tid_t child_tid);
 
 /* General process initializer for initd and other process. */
@@ -82,9 +84,8 @@ initd (void *f_name) {
  * TID_ERROR if the thread cannot be created. */
 tid_t
 process_fork (const char *name, struct intr_frame *if_ UNUSED) {
-	void *aux[2];
-	aux[0] = thread_current();
-	aux[1] = if_;
+	memcpy(&thread_current() -> fork_tf, if_, sizeof(struct intr_frame));  
+	void *aux = thread_current();
 	/* Clone current thread to new thread.*/
 	return thread_create (name,
 			PRI_DEFAULT, __do_fork, aux);
@@ -133,13 +134,15 @@ duplicate_pte (uint64_t *pte, void *va, void *aux) {
  *       That is, you are required to pass second argument of process_fork to
  *       this function. */
 static void
-__do_fork (void **aux) {
+__do_fork (void *aux) {
 	struct intr_frame if_;
-	struct thread *parent = (struct thread *) aux[0];
+	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
-	struct intr_frame *parent_if = (struct intr_frame *) aux[1];
+	// struct intr_frame *parent_if = (struct intr_frame *) aux[1];
+	struct intr_frame *parent_if = &parent->fork_tf;
 	bool succ = true;
+	// printf("aux: %x aux[0]: %x aux[1]: %x\n", aux, aux[0], aux[1]);
 
 	/* 1. Read the cpu context to local stack. */
 	memcpy (&if_, parent_if, sizeof (struct intr_frame));
@@ -163,11 +166,21 @@ __do_fork (void **aux) {
 	 * TODO:       in include/filesys/file.h. Note that parent should not return
 	 * TODO:       from the fork() until this function successfully duplicates
 	 * TODO:       the resources of parent.*/
+
+	struct list_elem *e = list_begin(&parent->file_table);
+	for (; e != list_end(&parent->file_table); e=list_next(e)){
+		struct file_table_elem *pfte = list_entry(e, struct file_table_elem, element);
+		struct file_table_elem *cfte = palloc_get_page(0);
+		cfte->fd = pfte -> fd;
+		cfte->file = file_duplicate(pfte->file);
+		list_push_back(&current -> file_table, &cfte -> element);
+	}
 	
 	process_init ();
 
 	/* Finally, switch to the newly created process. */
 	if_.R.rax = 0;
+	sema_up(&current->child_info.child_load_sema);
 	if (succ)
 		do_iret (&if_);
 error:
@@ -232,14 +245,13 @@ process_wait (tid_t child_tid UNUSED) {
 	if (t == NULL)
 		return -1;
 
-	// wait till child loads
-	sema_down(&t->child_info.child_load_sema);
-
-	if (!is_child(thread_current(), child_tid))
+	if (!is_child(thread_current(), child_tid)){
 		return -1;
-
+	}
 	sema_down (&t -> child_info.child_exit_sema);
 	int status = t -> child_info.child_exit_status;
+	list_remove(&t -> child_info.child_elem);
+	list_remove(&t -> all_t);
 
 	return status;
 }
