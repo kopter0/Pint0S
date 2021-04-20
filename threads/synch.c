@@ -110,17 +110,15 @@ sema_up (struct semaphore *sema) {
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
-
-	int new_pr = PRI_MIN;
-	if (!list_empty (&sema->waiters)){
+	bool is_empty = list_empty (&sema->waiters); 
+	if (!is_empty){
 		list_sort(&sema->waiters, priority_biggest, NULL);
 		struct list_elem *max = list_pop_front(&sema->waiters);
-		new_pr = list_entry(max, struct thread, elem) ->priority;
 		thread_unblock (list_entry(max, struct thread, elem));
 	}
 	sema->value++;
 	intr_set_level (old_level);
-	if (new_pr > thread_current() -> priority && !intr_context()){
+	if (!intr_context() && !is_empty){
 		thread_yield();
 	}
 }
@@ -198,6 +196,9 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
+	struct thread *t = thread_current();
+	
+
 	if (!thread_mlfqs && system_initialized){
 		// not mlfqs
 		if (!sema_try_down(&lock->semaphore)){
@@ -248,9 +249,9 @@ lock_release (struct lock *lock) {
 		if (!list_empty(&lock->semaphore.waiters)){
 			struct list_elem *e = list_begin(&lock->semaphore.waiters);
 			for(; e != list_end(&lock->semaphore.waiters); e = list_next(e)){
-				struct list_elem *m_elem = &list_entry(e, struct thread, elem)->m_elem;
-				list_entry(m_elem, struct thread, m_elem)->lock_holder = NULL;
-				list_remove( m_elem );
+				struct thread *t = list_entry(e, struct thread, elem);
+				t->lock_holder = NULL;
+				list_remove(&t -> m_elem );
 			}
 		}
 		reccursive_priority_update(thread_current());

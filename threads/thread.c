@@ -316,18 +316,17 @@ thread_tid (void) {
 void
 thread_exit (void) {
 	ASSERT (!intr_context ());
-
 	// list_remove(&thread_current()->all_t);
 
 	if (thread_current() -> child_info.child_elem.next)
 		list_remove(&thread_current() -> child_info.child_elem);
 	
-	sema_up(&thread_current() -> child_info.child_exit_sema);
+	
 
 #ifdef USERPROG
 	process_exit ();
 #endif
-
+	sema_up(&thread_current() -> child_info.child_exit_sema);
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable ();
@@ -361,7 +360,8 @@ thread_set_priority (int new_priority) {
 	if (!thread_mlfqs){
 		int max_donated = PRI_MIN;
 		if (!list_empty(&thread_current()->maecenes_list)){
-			max_donated = list_entry(list_min(&thread_current()->maecenes_list, priority_biggest_maecenes, NULL), struct thread, m_elem) -> priority;	
+			list_sort(&thread_current()->maecenes_list, priority_biggest_maecenes, NULL);
+			max_donated = list_entry(list_front(&thread_current()->maecenes_list), struct thread, m_elem) -> priority;	
 		}
 		thread_current ()->default_priority = new_priority;
 		thread_current ()->priority = max_donated > new_priority ? max_donated : new_priority;
@@ -380,17 +380,9 @@ reccursive_priority_update( struct thread *t) {
 	}
 	int max_donated = PRI_MIN;
 
-	// int ls = list_size(&t->maecenes_list);
-	// struct thread* arr[ls];
-	// struct list_elem *e = list_begin(&t->maecenes_list);
-	// int i = 0;
-	// for(; e != list_end(&t->maecenes_list); e=list_next(e)){
-	// 	arr[i] = list_entry(e, struct thread, m_elem);
-	// 	i++;
-	// }
-
 	if (!list_empty(&t->maecenes_list)){
-		max_donated = list_entry(list_min(&t->maecenes_list, priority_biggest_maecenes, NULL), struct thread, m_elem) -> priority;	
+		list_sort(&t->maecenes_list, priority_biggest_maecenes, NULL);
+		max_donated = list_entry(list_front(&t->maecenes_list), struct thread, m_elem) -> priority;	
 	}
 	if (max_donated > t->default_priority){
 		t->priority = max_donated;

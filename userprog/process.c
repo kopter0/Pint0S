@@ -34,6 +34,7 @@ bool is_child(struct thread *parent, tid_t child_tid);
 static void
 process_init (void) {
 	struct thread *current = thread_current ();
+	current -> is_user = true;
 }
 
 /* Starts the first userland program, called "initd", loaded from FILE_NAME.
@@ -275,7 +276,9 @@ process_exit (void) {
 	 * TODO: Implement process termination message (see
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
-	printf("%s: exit(%d)\n", curr -> name, curr -> child_info.child_exit_status);
+	if (curr -> is_user){
+		printf("%s: exit(%d)\n", curr -> name, curr -> child_info.child_exit_status);
+	}
 	process_cleanup ();
 }
 
