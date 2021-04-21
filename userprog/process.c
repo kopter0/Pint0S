@@ -402,13 +402,14 @@ load (const char *file_name, struct intr_frame *if_) {
 	if (t->pml4 == NULL)
 		goto done;
 	process_activate (thread_current ());
-
+    lock_acquire(&file_lock);
 	/* Open executable file. */
 	file = filesys_open (prog_name);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", prog_name);
 		goto done;
 	}
+	file_deny_write(file);
 
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -524,6 +525,7 @@ load (const char *file_name, struct intr_frame *if_) {
 done:
 	/* We arrive here whether the load is successful or not. */
 	file_close (file);
+	lock_release(&file_lock);
 	return success;
 }
 
@@ -600,7 +602,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
 	ASSERT (pg_ofs (upage) == 0);
 	ASSERT (ofs % PGSIZE == 0);
-
+ 
 	file_seek (file, ofs);
 	while (read_bytes > 0 || zero_bytes > 0) {
 		/* Do calculate how to fill this page.

@@ -180,13 +180,19 @@ create (const char *file UNUSED, unsigned initial_size UNUSED) {
 		debug_msg("Not in writeble\n");
 		exit(-1);
 	}
-	return filesys_create(file, initial_size);
+	lock_acquire(&file_lock);
+	bool output = filesys_create(file, initial_size);
+	lock_release(&file_lock);
+	return output;
 }
 
 bool
 remove (const char *file UNUSED){
 	debug_msg("SYSCALL_REMOVE\n");
-	return filesys_remove(file);
+	lock_acquire(&file_lock);
+	bool output = filesys_remove(file);
+	lock_release(&file_lock);
+	return output;
 }
 
 int
@@ -228,8 +234,10 @@ int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 	if (!f) {
 		return -1;
 	}
-	
-	return file_read(f, buffer, length);
+	lock_acquire(&file_lock);
+	int read =  file_read(f, buffer, length);
+	lock_release(&file_lock);
+	return read;
 
 	// return -1;
 }
@@ -253,8 +261,11 @@ int write (int fd UNUSED, const void *buffer UNUSED, unsigned length UNUSED){
 		return -1;
 
 	}
-	
-	return file_write(f, buffer, length);
+
+	lock_acquire(&file_lock);
+	int write =  file_write(f, buffer, length);
+	lock_release(&file_lock);
+	return write;
 
 	// return -1;
 }
@@ -265,9 +276,9 @@ void seek (int fd UNUSED, unsigned position UNUSED) {
 	struct file *f = get_file_by_fd(fd);
 	if (!f)
 		return;
-
-	file_seek(f, position);
-
+	lock_acquire(&file_lock);
+	file_seek(f, (off_t) position);
+	lock_release(&file_lock);
 }
 
 unsigned tell (int fd UNUSED) {
@@ -276,9 +287,10 @@ unsigned tell (int fd UNUSED) {
 	struct file *f = get_file_by_fd(fd);
 	if (!f)
 		return -1;
-
-	return file_tell(f);
-
+	lock_acquire(&file_lock);
+	unsigned tell = (unsigned) file_tell(f);
+	lock_release(&file_lock);
+	return tell;
 	// return 0;
 }
 
@@ -288,9 +300,10 @@ void close (int fd UNUSED) {
 	struct file *f = get_file_by_fd(fd);
 	if (!f)
 		return;
-
+	lock_acquire(&file_lock);
 	file_close(f);
 	remove_fd(fd);
+	lock_release(&file_lock);
 
 }
 

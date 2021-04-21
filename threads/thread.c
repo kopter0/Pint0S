@@ -57,6 +57,7 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
 bool thread_mlfqs;
 bool system_initialized;
 
+
 static void kernel_thread (thread_func *, void *aux);
 
 static void idle (void *aux UNUSED);
@@ -113,6 +114,7 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
+	lock_init(&file_lock);
 	load_avg = 0;
 	list_init(&all_threads);
 	/* Set up a thread structure for the running thread. */
