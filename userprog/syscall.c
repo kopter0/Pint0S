@@ -71,6 +71,7 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	debug_msg("SYSCALL %d from %d \n", f->R.rax, thread_current() -> tid);
+	lock_init(&file_lock);
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
@@ -208,9 +209,10 @@ open (const char *file UNUSED) {
 
 int filesize (int fd UNUSED) {
 	debug_msg("SYSCALL_FILESIZE\n");
-
-	return (int)file_length(get_file_by_fd(fd));
-	
+	lock_acquire(&file_lock);
+	int filesize = (int)file_length(get_file_by_fd(fd));
+	lock_release(&file_lock);
+	return filesize;
 	// return -1;
 }
 

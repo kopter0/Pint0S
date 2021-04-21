@@ -114,7 +114,6 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
-	lock_init(&file_lock);
 	load_avg = 0;
 	list_init(&all_threads);
 	/* Set up a thread structure for the running thread. */
@@ -239,6 +238,9 @@ thread_create (const char *name, int priority,
 
 /*get thrread by tid*/
 struct thread *get_thread_by_tid(tid_t tid){
+	if (list_empty(&all_threads)){
+		return NULL;
+	} 
 	struct list_elem *e = list_begin(&all_threads);
 	for (;e != list_end(&all_threads); e = list_next(e)){
 		struct thread *t = list_entry(e, struct thread, all_t);
@@ -248,7 +250,7 @@ struct thread *get_thread_by_tid(tid_t tid){
 	}
 	return NULL;
 }
-
+ 
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
 
