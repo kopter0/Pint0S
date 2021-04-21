@@ -275,7 +275,7 @@ process_exit (void) {
 		lock_acquire(&file_lock);
 		file_close(fte->file);
 		lock_release(&file_lock);
-		free((void *)fte);
+		// free((void *)fte);
 	}
 
 	process_cleanup ();
