@@ -319,16 +319,18 @@ void
 thread_exit (void) {
 	ASSERT (!intr_context ());
 	// list_remove(&thread_current()->all_t);
-
 	if (thread_current() -> child_info.child_elem.next)
 		list_remove(&thread_current() -> child_info.child_elem);
+
+	
+	
+	sema_up(&thread_current() -> child_info.child_exit_sema);
 	
 	
 
 #ifdef USERPROG
 	process_exit ();
 #endif
-	sema_up(&thread_current() -> child_info.child_exit_sema);
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable ();

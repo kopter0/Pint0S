@@ -61,6 +61,7 @@ process_create_initd (const char *file_name) {
 	memcpy(prog_name, file_name, l);
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (prog_name, PRI_DEFAULT, initd, fn_copy);
+	get_thread_by_tid(tid) -> child_info.parent = thread_current();
 	if (tid == TID_ERROR){
 		palloc_free_page (fn_copy);
 		palloc_free_page (prog_name);
@@ -139,6 +140,7 @@ __do_fork (void *aux) {
 	struct intr_frame if_;
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
+	current -> child_info.parent = parent;
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	// struct intr_frame *parent_if = (struct intr_frame *) aux[1];
 	struct intr_frame *parent_if = &parent->fork_tf;
@@ -177,6 +179,8 @@ __do_fork (void *aux) {
 		list_push_back(&current -> file_table, &cfte -> element);
 	}
 	
+	current -> next_fd = parent -> next_fd;
+
 	process_init ();
 
 	/* Finally, switch to the newly created process. */
@@ -192,9 +196,6 @@ error:
  * Returns -1 on fail. */
 int
 process_exec (void *f_name) {
-	// char *file_name = palloc_get_page(0); 
-	// strcpy(file_name, f_name);
-	// char *file_name = f_name; 
 	char *file_name = palloc_get_page(0);
 	strlcpy(file_name, f_name, strlen(f_name) + 1);
 	bool success;
@@ -211,8 +212,6 @@ process_exec (void *f_name) {
 	process_cleanup ();
 
 	/* And then load the binary */
-	// success = load (file_name, &_if);
-   // sema_down(&(thread_current() -> sema_exec));
 	success = load(file_name, &_if);
 
 	/* If load failed, quit. */
@@ -245,10 +244,8 @@ process_wait (tid_t child_tid UNUSED) {
 
 	if (t == NULL)
 		return -1;
-
-	if (!is_child(thread_current(), child_tid)){
+	if (t -> child_info.parent != thread_current())
 		return -1;
-	}
 	sema_down (&t -> child_info.child_exit_sema);
 	int status = t -> child_info.child_exit_status;
 	list_remove(&t -> child_info.child_elem);
@@ -256,17 +253,6 @@ process_wait (tid_t child_tid UNUSED) {
 
 	return status;
 }
-
-bool is_child(struct thread *parent, tid_t child_tid){
-	struct list_elem *e = list_begin(&parent->children);
-	for (; e != list_end(&parent->children); e=list_next(e)){
-		struct thread *t = list_entry(e, struct child_info, child_elem) -> child_thread; 
-		if (t ->tid == child_tid)
-			return true;
-	}
-	return false;
-}
-
 
 /* Exit the process. This function is called by thread_exit (). */
 void
@@ -279,6 +265,18 @@ process_exit (void) {
 	if (curr -> is_user){
 		printf("%s: exit(%d)\n", curr -> name, curr -> child_info.child_exit_status);
 	}
+
+	for (struct list_elem *e = list_begin(&curr->file_table);
+				e != list_end(&curr->file_table);)
+	{
+		struct file_table_elem *fte = list_entry(e, struct file_table_elem, element);
+		e = list_remove(e);
+		lock_acquire(&file_lock);
+		file_close(fte->file);
+		lock_release(&file_lock);
+		free((void *)fte);
+	}
+
 	process_cleanup ();
 }
 

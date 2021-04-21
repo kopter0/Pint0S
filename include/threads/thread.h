@@ -31,6 +31,7 @@ struct child_info {
 	struct semaphore child_load_sema;
 	struct thread *child_thread;
 	struct list_elem child_elem;
+	struct thread* parent;
 };
 
 
@@ -124,7 +125,6 @@ struct thread {
 
 	struct child_info child_info;
 	struct list children;
-
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */

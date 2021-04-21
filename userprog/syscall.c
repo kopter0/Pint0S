@@ -14,6 +14,7 @@
 #include "threads/malloc.h"
 #include "threads/init.h"
 #include "devices/input.h"
+#include "string.h"
 // #include "palloc.h"
 // #define DEBUG
 
@@ -154,6 +155,9 @@ pid_t
 fork (const char *thread_name, struct intr_frame *if_){
 	// tid_t tid = process_fork(thread_name, if_);
 	tid_t tid = process_fork(thread_name, if_);
+	if (tid == TID_ERROR){
+		return -1;	
+	}
 	sema_down(&get_thread_by_tid(tid) -> child_info.child_load_sema);
 	list_push_back(&thread_current() -> children, &get_thread_by_tid(tid) -> child_info.child_elem); 
 	return tid;
@@ -198,10 +202,16 @@ remove (const char *file UNUSED){
 int
 open (const char *file UNUSED) {
 	debug_msg("SYSCALL_OPEN %s, %s\n", file, (const char *)pml4_get_page(thread_current()->pml4, file));
+	if (!pml4_get_page(thread_current()->pml4, file)){
+		exit(-1);
+	}
 	struct file *f = filesys_open(file);
+	if (strcmp(file, thread_current()->name) == 0){
+		file_deny_write(f);
+	}
 	if (!f) {
 		debug_msg("File could not be opened\n");
-		exit(-1);
+		return - 1;
 	}
 	return get_new_fd(f);
 }
@@ -210,8 +220,6 @@ int filesize (int fd UNUSED) {
 	debug_msg("SYSCALL_FILESIZE\n");
 
 	return (int)file_length(get_file_by_fd(fd));
-	
-	// return -1;
 }
 
 int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
@@ -244,7 +252,7 @@ int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 
 int write (int fd UNUSED, const void *buffer UNUSED, unsigned length UNUSED){
 	char *f_name = thread_current() -> name;
-	debug_msg("SYSCALL_WRITE w ith fd: %d, from %s\n", fd, f_name);
+	debug_msg("SYSCALL_WRITE with fd: %d, from %s, buffer 0x%x\n", fd, f_name, buffer);
 	
 	if (!pml4_get_page(thread_current() -> pml4, buffer)){
 		debug_msg("Not in writeble\n");
@@ -259,9 +267,7 @@ int write (int fd UNUSED, const void *buffer UNUSED, unsigned length UNUSED){
 	if (!f){
 		debug_msg("File not found\n");
 		return -1;
-
 	}
-
 	lock_acquire(&file_lock);
 	int write =  file_write(f, buffer, length);
 	lock_release(&file_lock);
@@ -330,10 +336,12 @@ void remove_fd(int fd){
 	struct list_elem *e = list_begin(&thread_current()->file_table);
 	for (; e!=list_end(&thread_current()->file_table);e=list_next(e)){
 		struct file_table_elem *fte = list_entry(e, struct file_table_elem, element); 
-		if (fte -> fd == fd)
+		if (fte -> fd == fd){
+			list_remove(e);
+			free(fte);
 			break;
+		}
 	}
-	list_remove(e);
 }
 
 int
