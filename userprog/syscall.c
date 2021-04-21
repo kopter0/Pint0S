@@ -66,13 +66,13 @@ syscall_init (void) {
 	 * mode stack. Therefore, we masked the FLAG_FL. */
 	write_msr(MSR_SYSCALL_MASK,
 			FLAG_IF | FLAG_TF | FLAG_DF | FLAG_IOPL | FLAG_AC | FLAG_NT);
+	lock_init(&file_lock);
 }
 
 /* The main system call interface */
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	debug_msg("SYSCALL %d from %d \n", f->R.rax, thread_current() -> tid);
-	lock_init(&file_lock);
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
