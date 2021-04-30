@@ -3,6 +3,7 @@
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
+#include "lib/kernel/hash.h"
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -65,7 +66,17 @@ struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
+	struct hash_iterator i;
 
+   	hash_first (&i, spt -> page_table);
+   	while (hash_next (&i))
+	{
+		struct spt_entry *f = hash_entry (hash_cur (&i), struct spt_entry, elem);
+		if (f -> vaddr == va){
+			page = f -> pg;
+		}
+	}
+	
 	return page;
 }
 
@@ -75,7 +86,12 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 		struct page *page UNUSED) {
 	int succ = false;
 	/* TODO: Fill this function. */
-
+	struct spt_entry* new_entry = (struct spt_entry*) calloc(sizeof(struct spt_entry), 1);
+	new_entry -> pg = page;
+	new_entry -> vaddr = page -> va;
+	hash_insert(spt -> page_table, &new_entry -> elem);
+	succ = true;
+	
 	return succ;
 }
 
@@ -174,6 +190,7 @@ vm_do_claim_page (struct page *page) {
 /* Initialize new supplemental page table */
 void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
+	bool result = hash_init(spt -> page_table, &page_hash, &page_less, NULL);
 }
 
 /* Copy supplemental page table from src to dst */
@@ -187,4 +204,19 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
+}
+
+unsigned
+page_hash (const struct hash_elem *p_, void *aux UNUSED) {
+  const struct spt_entry *p = hash_entry (p_, struct spt_entry, elem);
+  return hash_bytes (&p->vaddr, sizeof p->vaddr);
+}
+
+bool
+page_less (const struct hash_elem *a_,
+           const struct hash_elem *b_, void *aux UNUSED) {
+  const struct spt_entry *a = hash_entry (a_, struct spt_entry, elem);
+  const struct spt_entry *b = hash_entry (b_, struct spt_entry, elem);
+
+  return a->vaddr < b->vaddr;
 }
