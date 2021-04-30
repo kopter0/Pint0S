@@ -46,6 +46,7 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
+	
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union {
@@ -83,14 +84,16 @@ struct page_operations {
 /* Representation of current process's memory space.
  * We don't want to force you to obey any specific design for this struct.
  * All designs up to you for this. */
-// struct spt_entry {
-// 	uint64_t vaddr;
-// 	uint64_t paddr;
-// 	struct hash_elem elem;
-// }
+struct spt_entry {
+	struct page *pg;
+	struct hash_elem elem;
+	enum vm_type;
+	void *vaddr;
+	
+};
 
 struct supplemental_page_table {
-	struct hash page_table;
+	struct hash *page_table;
 };
 
 
@@ -108,6 +111,9 @@ void spt_remove_page (struct supplemental_page_table *spt, struct page *page);
 void vm_init (void);
 bool vm_try_handle_fault (struct intr_frame *f, void *addr, bool user,
 		bool write, bool not_present);
+unsigned page_hash (const struct hash_elem *p_, void *aux UNUSED);
+bool page_less (const struct hash_elem *a_,
+           const struct hash_elem *b_, void *aux UNUSED);
 
 #define vm_alloc_page(type, upage, writable) \
 	vm_alloc_page_with_initializer ((type), (upage), (writable), NULL, NULL)
