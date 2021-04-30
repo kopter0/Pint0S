@@ -110,8 +110,14 @@ vm_evict_frame (void) {
  * space.*/
 static struct frame *
 vm_get_frame (void) {
-	struct frame *frame = NULL;
+	struct frame *frame = (struct frame *) calloc((size_t) 1, sizeof(frame));
 	/* TODO: Fill this function. */
+	void* kva = palloc_get_page(PAL_USER);
+
+	if (kva == NULL) {
+		PANIC("TODO: EVICT IN vm_get_frame");
+	}
+	frame -> kva = kva;
 
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
@@ -151,8 +157,10 @@ vm_dealloc_page (struct page *page) {
 /* Claim the page that allocate on VA. */
 bool
 vm_claim_page (void *va UNUSED) {
-	struct page *page = NULL;
+	struct page *page = (struct page*) calloc((size_t) 1, sizeof(struct page));
 	/* TODO: Fill this function */
+	page -> va = va;
+	page -> operations = (struct page_operations *) calloc((size_t) 1, sizeof(struct page_operations));
 
 	return vm_do_claim_page (page);
 }
@@ -160,7 +168,7 @@ vm_claim_page (void *va UNUSED) {
 /* Claim the PAGE and set up the mmu. */
 static bool
 vm_do_claim_page (struct page *page) {
-	struct frame *frame = vm_get_frame ();
+	struct frame *frame = vm_get_frame ();	
 
 	/* Set links */
 	frame->page = page;
@@ -174,6 +182,7 @@ vm_do_claim_page (struct page *page) {
 /* Initialize new supplemental page table */
 void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
+	
 }
 
 /* Copy supplemental page table from src to dst */
