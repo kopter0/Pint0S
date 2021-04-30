@@ -1,5 +1,7 @@
 /* vm.c: Generic interface for virtual memory objects. */
 
+#include "threads/vaddr.h"
+#include "threads/mmu.h"
 #include "threads/malloc.h"
 #include "vm/vm.h"
 #include "vm/inspect.h"
@@ -189,8 +191,13 @@ vm_do_claim_page (struct page *page) {
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
-
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
+	struct spt_entry *new_entry = (struct spt_entry *) calloc((size_t) 1, sizeof(struct spt_entry));
+	new_entry -> pg = page;
+	new_entry -> vaddr = page->va;
+	new_entry -> paddr = vtop(frame->kva);
+
+	hash_insert(thread_current() -> spt -> page_table, &new_entry -> elem);
 
 	return swap_in (page, frame->kva);
 }

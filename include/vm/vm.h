@@ -89,7 +89,7 @@ struct spt_entry {
 	struct hash_elem elem;
 	enum vm_type;
 	void *vaddr;
-	
+	void *paddr;
 };
 
 struct supplemental_page_table {
