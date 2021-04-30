@@ -148,7 +148,9 @@ halt (void) {
 void 
 exit (int status UNUSED) {
 	debug_msg("SYSCALL_EXIT\n");
-	thread_current() -> child_info.child_exit_status = status;	
+	// thread_current() -> child_info.child_exit_status = status;
+	struct historical_record *hr = find_in_history(thread_current() -> tid);
+	hr->exit_status = status;	
 	thread_exit();
 }
 
@@ -157,10 +159,12 @@ fork (const char *thread_name, struct intr_frame *if_){
 	// tid_t tid = process_fork(thread_name, if_);
 	tid_t tid = process_fork(thread_name, if_);
 	if (tid == TID_ERROR){
-		return -1;	
+		return -1;
 	}
-	sema_down(&get_thread_by_tid(tid) -> child_info.child_load_sema);
-	list_push_back(&thread_current() -> children, &get_thread_by_tid(tid) -> child_info.child_elem); 
+	// sema_down(&get_thread_by_tid(tid) -> child_info.child_load_sema);
+	struct historical_record *hr = find_in_history(tid);
+	hr -> parent_tid = thread_current() -> tid;	
+	sema_down(&hr -> sema_load);
 	return tid;
 }
 
@@ -202,17 +206,20 @@ remove (const char *file UNUSED){
 
 int
 open (const char *file UNUSED) {
-	debug_msg("SYSCALL_OPEN %s, %s\n", file, (const char *)pml4_get_page(thread_current()->pml4, file));
+	debug_msg("SYSCALL_OPEN %s\n", file);
 	if (!pml4_get_page(thread_current()->pml4, file)){
 		exit(-1);
 	}
+
+	lock_acquire(&file_lock);
 	struct file *f = filesys_open(file);
 	if (strcmp(file, thread_current()->name) == 0){
 		file_deny_write(f);
 	}
+	lock_release(&file_lock);
 	if (!f) {
 		debug_msg("File could not be opened\n");
-		return - 1;
+		return -1;
 	}
 	return get_new_fd(f);
 }
@@ -342,7 +349,6 @@ void remove_fd(int fd){
 		struct file_table_elem *fte = list_entry(e, struct file_table_elem, element); 
 		if (fte -> fd == fd){
 			list_remove(e);
-			free(fte);
 			break;
 		}
 	}

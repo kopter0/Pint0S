@@ -196,14 +196,15 @@ lock_acquire (struct lock *lock) {
 	ASSERT (!intr_context ());
 	ASSERT (!lock_held_by_current_thread (lock));
 
-	struct thread *t = thread_current();
+	struct thread *t = lock->holder;
 	
+	// enum intr_level old_level = intr_disable();
 
 	if (!thread_mlfqs && system_initialized){
 		// not mlfqs
-		if (!sema_try_down(&lock->semaphore)){
-			// donate here
-			list_push_back( &lock->holder->maecenes_list, &thread_current()->m_elem );
+		
+		if (!sema_try_down(&lock->semaphore)){ 
+			list_push_back( &t->maecenes_list, &thread_current()->m_elem );
 			thread_current() -> lock_holder = lock->holder;
 			reccursive_priority_update(lock->holder);
 			sema_down(&lock->semaphore);
@@ -214,6 +215,7 @@ lock_acquire (struct lock *lock) {
 
 	}
 	lock->holder = thread_current ();
+	// intr_set_level(old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -245,6 +247,7 @@ void
 lock_release (struct lock *lock) {
 	ASSERT (lock != NULL);
 	ASSERT (lock_held_by_current_thread (lock));
+	// enum intr_level old_level = intr_disable();
 	if (!thread_mlfqs && system_initialized){
 		if (!list_empty(&lock->semaphore.waiters)){
 			struct list_elem *e = list_begin(&lock->semaphore.waiters);
@@ -258,7 +261,7 @@ lock_release (struct lock *lock) {
 	}
 	lock->holder = NULL;
 	sema_up (&lock->semaphore);
-	
+	// intr_set_level(old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false

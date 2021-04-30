@@ -35,6 +35,7 @@ struct child_info {
 };
 
 
+
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -44,6 +45,16 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+struct historical_record {
+	struct semaphore sema_load;
+	struct semaphore sema_exit;
+	struct list_elem elem;
+	tid_t tid;
+	tid_t parent_tid;
+	int exit_status;
+};
+
 
 /* A kernel thread or user process.
  *
@@ -122,9 +133,7 @@ struct thread {
 	int nice;
 	int recent_cpu; 
 
-
-	struct child_info child_info;
-	struct list children;
+	// struct list children;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -192,6 +201,8 @@ void increment_recent_cpu(void);
 void priority_change(void);
 void recent_cpu_change(void);
 bool priority_biggest_maecenes(const struct list_elem *a, const struct list_elem *b, void *aux);
+
+struct historical_record* find_in_history(tid_t tid);
 
 
 #endif /* threads/thread.h */

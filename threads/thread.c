@@ -12,6 +12,7 @@
 #include "threads/vaddr.h"
 #include "threads/fixed_point_arith.h"
 #include "intrinsic.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -32,6 +33,8 @@ int load_avg;
 static struct list all_threads;
 /* Idle thread. */
 static struct thread *idle_thread;
+
+static struct list history_list;
 
 /* Initial thread, the thread running init.c:main(). */
 static struct thread *initial_thread;
@@ -114,6 +117,7 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 	list_init (&destruction_req);
+	list_init (&history_list);
 	load_avg = 0;
 	list_init(&all_threads);
 	/* Set up a thread structure for the running thread. */
@@ -223,11 +227,17 @@ thread_create (const char *name, int priority,
 	/* Add to run queue. */
 	thread_unblock (t);
 
-	list_push_back(&thread_current() -> children, &t -> child_info.child_elem);
-	sema_init(&t->child_info.child_exit_sema, 0);
-	sema_init(&t->child_info.child_load_sema, 0);
+	// list_push_back(&thread_current() -> children, &t -> child_info.child_elem);
+	// sema_init(&t->child_info.child_exit_sema, 0);
+	// sema_init(&t->child_info.child_load_sema, 0);
 
-
+	struct historical_record *hr = calloc(1, sizeof(struct historical_record));
+	sema_init(&hr -> sema_exit, 0);
+	sema_init(&hr -> sema_load, 0);
+	hr -> tid = t -> tid;
+	hr -> parent_tid = -1;
+	hr -> exit_status = 0;
+	list_push_back(&history_list, &hr -> elem);
 
 	if (thread_current()->priority < priority){
 		thread_yield();
@@ -238,16 +248,20 @@ thread_create (const char *name, int priority,
 
 /*get thrread by tid*/
 struct thread *get_thread_by_tid(tid_t tid){
+	enum intr_level old = intr_disable();
 	if (list_empty(&all_threads)){
+		intr_set_level(old);
 		return NULL;
 	} 
 	struct list_elem *e = list_begin(&all_threads);
 	for (;e != list_end(&all_threads); e = list_next(e)){
 		struct thread *t = list_entry(e, struct thread, all_t);
 		if (t -> tid == tid){
+			intr_set_level(old);
 			return t;
 		}
 	}
+	intr_set_level(old);
 	return NULL;
 }
  
@@ -320,16 +334,18 @@ thread_tid (void) {
 void
 thread_exit (void) {
 	ASSERT (!intr_context ());
-	// list_remove(&thread_current()->all_t);
-	if (thread_current() -> child_info.child_elem.next)
-		list_remove(&thread_current() -> child_info.child_elem);
+	list_remove(&thread_current()->all_t);
+	// if (thread_current() -> child_info.child_elem.next)
+	// 	list_remove(&thread_current() -> child_info.child_elem);
 
-	
+
 #ifdef USERPROG
 	process_exit ();
 #endif
 
-	sema_up(&thread_current() -> child_info.child_exit_sema);
+	sema_up(&find_in_history(thread_current() -> tid) -> sema_exit);
+
+	// sema_up(&thread_current() -> child_info.child_exit_sema);
 	/* Just set our status to dying and schedule another process.
 	   We will be destroyed during the call to schedule_tail(). */
 	intr_disable ();
@@ -573,8 +589,8 @@ init_thread (struct thread *t, const char *name, int priority) {
 	list_init(&t -> file_table);
 	t->next_fd = 2;
 
-	list_init(&t -> children);
-	t -> child_info.child_thread = t;
+	// list_init(&t -> children);
+	// t -> child_info.child_thread = t;
 }
 
 
@@ -778,3 +794,14 @@ allocate_tid (void) {
 
 	return tid;
 }
+
+struct historical_record* find_in_history(tid_t tid) {
+	struct list_elem *e = list_begin(&history_list);
+	for (; e != list_end(&history_list); e = list_next(e)){
+		struct historical_record *hr = list_entry(e, struct historical_record, elem);
+		if (hr -> tid == tid){
+			return hr;
+		}
+	}
+	return NULL;
+} 
