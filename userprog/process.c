@@ -19,6 +19,7 @@
 #include "threads/vaddr.h"
 #include "intrinsic.h"
 #include "userprog/syscall.h"
+#include "threads/malloc.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -62,7 +63,8 @@ process_create_initd (const char *file_name) {
 	memcpy(prog_name, file_name, l);
 	/* Create a new thread to execute FILE_NAME. */
 	tid = thread_create (prog_name, PRI_DEFAULT, initd, fn_copy);
-	get_thread_by_tid(tid) -> child_info.parent = thread_current();
+	find_in_history(tid) -> parent_tid = thread_current() -> tid;
+	// get_thread_by_tid(tid) -> child_info.parent = thread_current();
 	if (tid == TID_ERROR){
 		palloc_free_page (fn_copy);
 		palloc_free_page (prog_name);
@@ -141,7 +143,7 @@ __do_fork (void *aux) {
 	struct intr_frame if_;
 	struct thread *parent = (struct thread *) aux;
 	struct thread *current = thread_current ();
-	current -> child_info.parent = parent;
+	// current -> child_info.parent = parent;
 	/* TODO: somehow pass the parent_if. (i.e. process_fork()'s if_) */
 	// struct intr_frame *parent_if = (struct intr_frame *) aux[1];
 	struct intr_frame *parent_if = &parent->fork_tf;
@@ -174,9 +176,11 @@ __do_fork (void *aux) {
 	struct list_elem *e = list_begin(&parent->file_table);
 	for (; e != list_end(&parent->file_table); e=list_next(e)){
 		struct file_table_elem *pfte = list_entry(e, struct file_table_elem, element);
-		struct file_table_elem *cfte = palloc_get_page(0);
+		struct file_table_elem *cfte = calloc(1, sizeof(struct file_table_elem));
 		cfte->fd = pfte -> fd;
+		lock_acquire(&file_lock);
 		cfte->file = file_duplicate(pfte->file);
+		lock_release(&file_lock);
 		list_push_back(&current -> file_table, &cfte -> element);
 	}
 	
@@ -186,7 +190,8 @@ __do_fork (void *aux) {
 
 	/* Finally, switch to the newly created process. */
 	if_.R.rax = 0;
-	sema_up(&current->child_info.child_load_sema);
+	// sema_up(&current->child_info.child_load_sema);
+	sema_up(&find_in_history(thread_current() -> tid) -> sema_load);
 	if (succ)
 		do_iret (&if_);
 error:
@@ -217,7 +222,8 @@ process_exec (void *f_name) {
 
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
-	sema_up(&thread_current() -> child_info.child_load_sema);
+	// sema_up(&thread_current() -> child_info.child_load_sema);
+	sema_up(&find_in_history(thread_current() -> tid) -> sema_load);
 	if (!success)
 		exit(-1);
 
@@ -241,18 +247,21 @@ process_wait (tid_t child_tid UNUSED) {
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	struct thread *t = get_thread_by_tid(child_tid);
 
-	if (t == NULL)
-		return -1;
-	if (t -> child_info.parent != thread_current())
-		return -1;
-	sema_down (&t -> child_info.child_exit_sema);
-	int status = t -> child_info.child_exit_status;
-	list_remove(&t -> child_info.child_elem);
-	list_remove(&t -> all_t);
+	struct historical_record* hr = find_in_history(child_tid);
+	if (hr){
+		if (hr -> parent_tid == thread_current() -> tid){
+			sema_down(&hr -> sema_exit);
+			int status = hr -> exit_status;
+			list_remove(&hr->elem);
+			// free(&hr -> sema_exit);
+			// free(&hr -> elem);
+			free(hr);
+			return status;
+		}
+	}
 
-	return status;
+	return -1;
 }
 
 /* Exit the process. This function is called by thread_exit (). */
@@ -264,9 +273,8 @@ process_exit (void) {
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 	if (curr -> is_user){
-		printf("%s: exit(%d)\n", curr -> name, curr -> child_info.child_exit_status);
+		printf("%s: exit(%d)\n", curr -> name, find_in_history(thread_current() -> tid) -> exit_status);
 	}
-
 	for (struct list_elem *e = list_begin(&curr->file_table);
 				e != list_end(&curr->file_table);)
 	{
@@ -275,9 +283,8 @@ process_exit (void) {
 		lock_acquire(&file_lock);
 		file_close(fte->file);
 		lock_release(&file_lock);
-		// free((void *)fte);
+		free(fte);
 	}
-
 	process_cleanup ();
 }
 
@@ -305,7 +312,10 @@ process_cleanup (void) {
 		curr->pml4 = NULL;
 		pml4_activate (NULL);
 		pml4_destroy (pml4);
+		
 	}
+
+	// printf("Proc Cleanup %x %x\n", &thread_current() -> all_t.next, &thread_current() -> all_t.prev);
 }
 
 /* Sets up the CPU for running user code in the nest thread.
@@ -394,7 +404,7 @@ load (const char *file_name, struct intr_frame *if_) {
 	char *save_ptr;
 	char *prog_name = strtok_r (file_name, " ", &save_ptr);
 	args[0] = prog_name;
-
+	lock_acquire(&file_lock);
 
 	/* Allocate and activate page directory. */
 	t->pml4 = pml4_create ();
@@ -403,13 +413,13 @@ load (const char *file_name, struct intr_frame *if_) {
 	process_activate (thread_current ());
     
 	/* Open executable file. */
+
 	file = filesys_open (prog_name);
 	if (file == NULL) {
 		printf ("load: %s: open failed\n", prog_name);
 		goto done;
 	}
-	file_deny_write(file);
-
+	// file_deny_write(file);
 	/* Read and verify executable header. */
 	if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
 			|| memcmp (ehdr.e_ident, "\177ELF\2\1\1", 7)
@@ -421,7 +431,6 @@ load (const char *file_name, struct intr_frame *if_) {
 		printf ("load: %s: error loading executable\n", prog_name);
 		goto done;
 	}
-
 	/* Read program headers. */
 	file_ofs = ehdr.e_phoff;
 	for (i = 0; i < ehdr.e_phnum; i++) {
@@ -524,7 +533,7 @@ load (const char *file_name, struct intr_frame *if_) {
 done:
 	/* We arrive here whether the load is successful or not. */
 	file_close (file);
-	
+	lock_release(&file_lock);
 	return success;
 }
 
