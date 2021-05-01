@@ -56,10 +56,27 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-
+			struct page new_page;
+			bool *initializer;
+			switch (type)
+			{
+			case VM_ANON:
+				initializer = &anon_initializer;
+				break;
+			case VM_FILE:
+				initializer = &file_backed_initializer;
+				break;
+			/*TO_DO: VM_PAGE_CACHE*/
+			default:
+				PANIC("no match vm_type");
+				break;
+			}
+			
+			uninit_new(&new_page, upage ,init, type, aux, initializer);
 		/* TODO: Insert the page into the spt. */
+		bool insert_succ = spt_insert_page(spt, &new_page);
+		return insert_succ;
 	}
-err:
 	return false;
 }
 
