@@ -68,6 +68,7 @@ struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
+	lock_acquire(&hash_lock);
 	struct hash_iterator i;
 
    	hash_first (&i, spt -> page_table);
@@ -78,7 +79,7 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 			page = f -> pg;
 		}
 	}
-	
+	lock_release(&hash_lock);
 	return page;
 }
 
@@ -91,7 +92,9 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 	struct spt_entry* new_entry = (struct spt_entry*) calloc(sizeof(struct spt_entry), 1);
 	new_entry -> pg = page;
 	new_entry -> vaddr = page -> va;
+	lock_acquire(&hash_lock);
 	hash_insert(spt -> page_table, &new_entry -> elem);
+	lock_release(&hash_lock);
 	succ = true;
 	
 	return succ;
@@ -196,9 +199,9 @@ vm_do_claim_page (struct page *page) {
 	new_entry -> pg = page;
 	new_entry -> vaddr = page->va;
 	new_entry -> paddr = vtop(frame->kva);
-
-	hash_insert(thread_current() -> spt -> page_table, &new_entry -> elem);
-
+	lock_acquire(&hash_lock);
+	hash_insert(thread_current() -> spt.page_table, &new_entry -> elem);
+	lock_release(&hash_lock);
 	return swap_in (page, frame->kva);
 }
 

@@ -2,6 +2,7 @@
 #define VM_VM_H
 #include <stdbool.h>
 #include "threads/palloc.h"
+#include <hash.h>
 
 enum vm_type {
 	/* page not initialized */
@@ -96,6 +97,14 @@ struct supplemental_page_table {
 	struct hash *page_table;
 };
 
+struct load_segment_info = {
+	struct file *file;
+	off_t ofs;
+	uint8_t *upage;
+	uint32_t read_bytes;
+	uint32_t zero_bytes;
+	bool writable;
+}
 
 
 #include "threads/thread.h"
