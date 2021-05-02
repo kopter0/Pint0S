@@ -694,12 +694,13 @@ lazy_load_segment (struct page *page, void *aux) {
 	struct load_segment_info * lsi = (struct load_segment_info *) aux;
 	lock_acquire(&file_lock);
 	file_seek(lsi -> file, lsi -> ofs);
-	uint8_t kva = (uint8_t)lsi -> upage;
-	if (file_read(lsi -> file, kva, lsi -> read_bytes) != (int) lsi -> read_bytes){
+	
+	if (file_read(lsi -> file, page -> va, lsi -> read_bytes) != (int) lsi -> read_bytes){
 		return false;
 	}
+	lock_release(&file_lock);
 
-	memset (kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
+	memset (page -> va + lsi -> read_bytes, 0, lsi -> zero_bytes);
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
