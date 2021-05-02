@@ -354,19 +354,19 @@ void remove_fd(int fd){
 	}
 }
 
-int
-debug_msg (const char *format, ...) {
-	#ifdef DEBUG
-	va_list args;
-	int retval;
+// int
+// debug_msg (const char *format, ...) {
+// 	#ifdef DEBUG
+// 	va_list args;
+// 	int retval;
 
-	va_start (args, format);
-	retval = vprintf (format, args);
-	va_end (args);
+// 	va_start (args, format);
+// 	retval = vprintf (format, args);
+// 	va_end (args);
 
-	return retval;
-	#else
-	return 0;
-	#endif
+// 	return retval;
+// 	#else
+// 	return 0;
+// 	#endif
 	
-}
+// }

@@ -6,6 +6,11 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 #include "lib/kernel/hash.h"
+#include <stdio.h>
+#define DEBUG
+int debug_msg (const char *format, ...);
+
+
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
@@ -150,13 +155,15 @@ static struct frame *
 vm_get_frame (void) {
 	struct frame *frame = (struct frame *) calloc((size_t) 1, sizeof(frame));
 	/* TODO: Fill this function. */
-	void* kva = palloc_get_page(PAL_USER);
-
-	if (kva == NULL) {
+	frame -> kva = palloc_get_page(PAL_USER);
+	
+	if (frame -> kva == NULL) {
 		PANIC("TODO: EVICT IN vm_get_frame");
 	}
-	frame -> kva = kva;
-
+	// if (!vm_alloc_page(VM_ANON, frame -> page, true)) {
+	// 	PANIC("FRAME NOT allocated");
+	// }
+	
 	ASSERT (frame != NULL);
 	ASSERT (frame->page == NULL);
 	return frame;
@@ -225,6 +232,7 @@ vm_do_claim_page (struct page *page) {
 /* Initialize new supplemental page table */
 void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
+	spt -> page_table = calloc((size_t) 1, sizeof(struct hash));
 	bool result = hash_init(spt -> page_table, &page_hash, &page_less, NULL);
 }
 
@@ -270,4 +278,15 @@ page_less (const struct hash_elem *a_,
   const struct spt_entry *b = hash_entry (b_, struct spt_entry, elem);
 
   return a->vaddr < b->vaddr;
+}
+
+
+int
+debug_msg (const char *format, ...) {
+	#ifdef DEBUG
+	return printf(format);
+	#else
+	return 0;
+	#endif
+	
 }
