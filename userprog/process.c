@@ -694,7 +694,9 @@ lazy_load_segment (struct page *page, void *aux) {
 	struct load_segment_info * lsi = (struct load_segment_info *) aux;
 	lock_acquire(&file_lock);
 	file_seek(lsi -> file, lsi -> ofs);
-	
+	 
+	printf("load_addr %d\n", lsi->upage);
+
 	if (file_read(lsi -> file, page -> va, lsi -> read_bytes) != (int) lsi -> read_bytes){
 		return false;
 	}
@@ -752,6 +754,21 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		// my advance
 		ofs += (off_t)page_read_bytes;
 	}
+
+	printf("ASDFAS\n");
+	lock_acquire(&hash_lock);
+
+	struct hash_iterator i;
+
+	hash_first (&i, thread_current()->spt.page_table);
+	while (hash_next (&i))
+	{
+		struct spt_entry *f = hash_entry (hash_cur (&i), struct spt_entry, elem);
+		printf("Elem va: 0x%x, pa: 0x%x\n",f ->vaddr, f->paddr);
+	}
+
+	lock_release(&hash_lock);
+
 	return true;
 }
 
@@ -765,7 +782,9 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
-
+	vm_alloc_page(VM_ANON + VM_MARKER_0, stack_bottom, true);	
+	success = vm_claim_page(stack_bottom);
+	if_ -> rsp = USER_STACK;
 	return success;
 }
 #endif /* VM */
