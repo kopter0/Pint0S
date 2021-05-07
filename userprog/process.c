@@ -24,12 +24,13 @@
 #include "vm/vm.h"
 #endif
 
+
+#define DEBUG
 static void process_cleanup (void);
 static bool load (const char *file_name, struct intr_frame *if_);
 static void initd (void *f_name);
 // static void __do_fork (void **);
 static void __do_fork (void *);
-
 bool is_child(struct thread *parent, tid_t child_tid);
 
 /* General process initializer for initd and other process. */
@@ -693,16 +694,22 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: VA is available when calling this function. */
 	struct load_segment_info * lsi = (struct load_segment_info *) aux;
 	lock_acquire(&file_lock);
-	file_seek(lsi -> file, lsi -> ofs);
+	struct file* file = filesys_open(thread_current() -> name);
+	file_seek(file, lsi -> ofs);
 	 
-	printf("load_addr %d\n", lsi->upage);
+	debug_msg("DEBUG: load_addr 0x%x\n", lsi->upage);
 
-	if (file_read(lsi -> file, page -> va, lsi -> read_bytes) != (int) lsi -> read_bytes){
+	int actual_read = file_read(file, page -> frame -> kva, (off_t)lsi -> read_bytes);	
+	debug_msg("DEBUG: read: %d, should %d\n", actual_read, lsi ->read_bytes);
+	if (actual_read != (int) lsi -> read_bytes){
+		PANIC("Couldnt write");
 		return false;
 	}
+	file_close(file);
 	lock_release(&file_lock);
 
-	memset (page -> va + lsi -> read_bytes, 0, lsi -> zero_bytes);
+	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
+	return true;
 }
 
 /* Loads a segment starting at offset OFS in FILE at address
@@ -741,7 +748,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		lsi -> upage = upage;
 		lsi -> read_bytes = page_read_bytes;
 		lsi -> zero_bytes = page_zero_bytes;
-		lsi -> writable = writable;
+		lsi -> is_writable = writable;
 
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
@@ -754,20 +761,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		// my advance
 		ofs += (off_t)page_read_bytes;
 	}
-
-	printf("ASDFAS\n");
-	lock_acquire(&hash_lock);
-
-	struct hash_iterator i;
-
-	hash_first (&i, thread_current()->spt.page_table);
-	while (hash_next (&i))
-	{
-		struct spt_entry *f = hash_entry (hash_cur (&i), struct spt_entry, elem);
-		printf("Elem va: 0x%x, pa: 0x%x\n",f ->vaddr, f->paddr);
-	}
-
-	lock_release(&hash_lock);
 
 	return true;
 }

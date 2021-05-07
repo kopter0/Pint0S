@@ -6,9 +6,11 @@
 #include "vm/vm.h"
 #include "vm/inspect.h"
 #include "lib/kernel/hash.h"
+#include "devices/input.h"
+#include "string.h"
 #include <stdio.h>
-// #define DEBUG
-int debug_msg (const char *format, ...);
+#define DEBUG
+// int debug_msg (const char *format, ...);
 
 
 
@@ -227,14 +229,9 @@ vm_do_claim_page (struct page *page) {
 	page->frame = frame;
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	page -> spt_entry -> paddr = frame -> kva;
-	// struct spt_entry *new_entry = (struct spt_entry *) calloc((size_t) 1, sizeof(struct spt_entry));
-	// new_entry -> pg = page;
-	// new_entry -> vaddr = page->va;
-	// // new_entry -> paddr = vtop(frame->kva);
-	// new_entry -> paddr = frame->kva;
-	// lock_acquire(&hash_lock);
-	// hash_insert(thread_current() -> spt.page_table, &new_entry -> elem);
-	// lock_release(&hash_lock);
+	// pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, page->spt_entry->is_writable);
+	pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, true);
+
 	return swap_in (page, frame->kva);
 }
 
@@ -249,15 +246,15 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
-	struct hash_iterator j;
+	// struct hash_iterator j;
 
-   	hash_first (&j, src -> page_table);
-   	while (hash_next (&j)){
-		struct spt_entry *src_spt_entry = hash_entry (hash_cur (&j), struct spt_entry, elem);
-		vm_alloc_page(src_spt_entry -> vm_type, src_spt_entry -> vaddr, src_spt_entry -> is_writable);
+   	// hash_first (&j, src -> page_table);
+   	// while (hash_next (&j)){
+		// struct spt_entry *src_spt_entry = hash_entry (hash_cur (&j), struct spt_entry, elem);
+		// // vm_alloc_page(src_spt_entry -> vm_type, src_spt_entry -> vaddr, src_spt_entry -> is_writable);
 		// vm_claim_page() ?
 	//	spt_insert_page(dst, );
-	}
+	// }
 }
 
 /* Free the resource hold by the supplemental page table */
@@ -290,12 +287,14 @@ page_less (const struct hash_elem *a_,
 }
 
 
-int
-debug_msg (const char *format, ...) {
+int debug_msg (const char *format, ...) {
 	#ifdef DEBUG
-	return printf(format);
+	va_list args;
+
+	va_start (args, format);
+  vprintf (format, args);
+	va_end (args);
 	#else
 	return 0;
 	#endif
-	
 }
