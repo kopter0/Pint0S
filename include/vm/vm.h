@@ -91,6 +91,8 @@ struct spt_entry {
 	enum vm_type;
 	void *vaddr;
 	void *paddr;
+	bool is_writable;
+	bool is_stack;
 };
 
 struct supplemental_page_table {
@@ -103,7 +105,8 @@ struct load_segment_info {
 	uint8_t *upage;
 	uint32_t read_bytes;
 	uint32_t zero_bytes;
-	bool writable;
+	bool is_writable;
+
 };
 
 

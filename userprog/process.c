@@ -764,7 +764,19 @@ setup_stack (struct intr_frame *if_) {
 	 * TODO: If success, set the rsp accordingly.
 	 * TODO: You should mark the page is stack. */
 	/* TODO: Your code goes here */
+	uint8_t *kpage;
+	kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+	if (kpage != NULL) {
+		success = install_page (stack_bottom, kpage, true);
+		if (success)
+			if_->rsp = USER_STACK;
+		else
+			palloc_free_page (kpage);
+	}
 
+	bool alloc_page = vm_alloc_page( VM_ANON, stack_bottom, true);
+
+	
 	return success;
 }
 #endif /* VM */
