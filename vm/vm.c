@@ -7,7 +7,7 @@
 #include "vm/inspect.h"
 #include "lib/kernel/hash.h"
 #include <stdio.h>
-#define DEBUG
+// #define DEBUG
 int debug_msg (const char *format, ...);
 
 
@@ -61,9 +61,9 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 		/* TODO: Create the page, fetch the initialier according to the VM type,
 		 * TODO: and then create "uninit" page struct by calling uninit_new. You
 		 * TODO: should modify the field after calling the uninit_new. */
-			struct page new_page;
+			struct page *new_page = (struct page*)malloc(sizeof(struct page));
 			bool *initializer;
-			switch (type)
+			switch (VM_TYPE(type))
 			{
 			case VM_ANON:
 				initializer = &anon_initializer;
@@ -77,9 +77,9 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 				break;
 			}
 			
-			uninit_new(&new_page, upage ,init, type, aux, initializer);
+			uninit_new(new_page, upage ,init, type, aux, initializer);
 		/* TODO: Insert the page into the spt. */
-		bool insert_succ = spt_insert_page(spt, &new_page);
+		bool insert_succ = spt_insert_page(spt, new_page);
 		return insert_succ;
 	}
 	return false;
@@ -114,6 +114,7 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 	struct spt_entry* new_entry = (struct spt_entry*) calloc(sizeof(struct spt_entry), 1);
 	new_entry -> pg = page;
 	new_entry -> vaddr = page -> va;
+	page -> spt_entry = new_entry;
 	lock_acquire(&hash_lock);
 	hash_insert(spt -> page_table, &new_entry -> elem);
 	lock_release(&hash_lock);
@@ -153,10 +154,10 @@ vm_evict_frame (void) {
  * space.*/
 static struct frame *
 vm_get_frame (void) {
-	struct frame *frame = (struct frame *) calloc((size_t) 1, sizeof(frame));
+	struct frame *frame = (struct frame *) calloc((size_t) 1, sizeof(struct frame));
 	/* TODO: Fill this function. */
 	frame -> kva = palloc_get_page(PAL_USER);
-	
+
 	if (frame -> kva == NULL) {
 		PANIC("TODO: EVICT IN vm_get_frame");
 	}
@@ -184,9 +185,12 @@ bool
 vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
-	struct page *page = NULL;
+	struct page *page = spt_find_page(spt ,pg_round_down(addr));
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+	if (page == NULL) {
+		PANIC("PAGE DOES NOT EXIST 0x%x", pg_round_down(addr));
+	}
 
 	return vm_do_claim_page (page);
 }
@@ -202,10 +206,13 @@ vm_dealloc_page (struct page *page) {
 /* Claim the page that allocate on VA. */
 bool
 vm_claim_page (void *va UNUSED) {
-	struct page *page = (struct page*) calloc((size_t) 1, sizeof(struct page));
+	// struct page *page = (struct page*) calloc((size_t) 1, sizeof(struct page));
+	struct page *page = spt_find_page(&thread_current() -> spt, va);
+	if (page == NULL)
+		PANIC("no page 0x%x", va);
 	/* TODO: Fill this function */
-	page -> va = va;
-	page -> operations = (struct page_operations *) calloc((size_t) 1, sizeof(struct page_operations));
+	// page -> va = va;
+	// page -> operations = (struct page_operations *) calloc((size_t) 1, sizeof(struct page_operations));
 
 	return vm_do_claim_page (page);
 }
@@ -219,13 +226,15 @@ vm_do_claim_page (struct page *page) {
 	frame->page = page;
 	page->frame = frame;
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
-	struct spt_entry *new_entry = (struct spt_entry *) calloc((size_t) 1, sizeof(struct spt_entry));
-	new_entry -> pg = page;
-	new_entry -> vaddr = page->va;
-	new_entry -> paddr = vtop(frame->kva);
-	lock_acquire(&hash_lock);
-	hash_insert(thread_current() -> spt.page_table, &new_entry -> elem);
-	lock_release(&hash_lock);
+	page -> spt_entry -> paddr = frame -> kva;
+	// struct spt_entry *new_entry = (struct spt_entry *) calloc((size_t) 1, sizeof(struct spt_entry));
+	// new_entry -> pg = page;
+	// new_entry -> vaddr = page->va;
+	// // new_entry -> paddr = vtop(frame->kva);
+	// new_entry -> paddr = frame->kva;
+	// lock_acquire(&hash_lock);
+	// hash_insert(thread_current() -> spt.page_table, &new_entry -> elem);
+	// lock_release(&hash_lock);
 	return swap_in (page, frame->kva);
 }
 

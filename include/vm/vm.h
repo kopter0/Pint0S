@@ -13,7 +13,6 @@ enum vm_type {
 	VM_FILE = 2,
 	/* page that hold the page cache, for project 4 */
 	VM_PAGE_CACHE = 3,
-
 	/* Bit flags to store state */
 
 	/* Auxillary bit flag marker for store information. You can add more
@@ -47,7 +46,7 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
-	
+	struct spt_entry *spt_entry;
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union {
