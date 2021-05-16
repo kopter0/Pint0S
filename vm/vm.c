@@ -9,7 +9,7 @@
 #include "devices/input.h"
 #include "string.h"
 #include <stdio.h>
-#define DEBUG
+// #define DEBUG
 // int debug_msg (const char *format, ...);
 
 
@@ -58,6 +58,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 
 	struct supplemental_page_table *spt = &thread_current ()->spt;
 
+
 	/* Check wheter the upage is already occupied or not. */
 	if (spt_find_page (spt, upage) == NULL) {
 		/* TODO: Create the page, fetch the initialier according to the VM type,
@@ -92,7 +93,8 @@ struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
-	lock_acquire(&hash_lock);
+	lock_acquire(&spt -> lock);
+
 	struct hash_iterator i;
 
    	hash_first (&i, spt -> page_table);
@@ -103,7 +105,7 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 			page = f -> pg;
 		}
 	}
-	lock_release(&hash_lock);
+	lock_release(&spt->lock);
 	return page;
 }
 
@@ -117,9 +119,9 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 	new_entry -> pg = page;
 	new_entry -> vaddr = page -> va;
 	page -> spt_entry = new_entry;
-	lock_acquire(&hash_lock);
+	lock_acquire(&spt->lock);
 	hash_insert(spt -> page_table, &new_entry -> elem);
-	lock_release(&hash_lock);
+	lock_release(&spt->lock);
 	succ = true;
 	
 	return succ;
@@ -231,6 +233,7 @@ vm_do_claim_page (struct page *page) {
 	page -> spt_entry -> paddr = frame -> kva;
 	// pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, page->spt_entry->is_writable);
 	pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, true);
+	page -> spt_entry -> vm_type = page_get_type(page);
 
 	return swap_in (page, frame->kva);
 }
@@ -240,21 +243,66 @@ void
 supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 	spt -> page_table = calloc((size_t) 1, sizeof(struct hash));
 	bool result = hash_init(spt -> page_table, &page_hash, &page_less, NULL);
+	lock_init(&spt -> lock);
+	spt -> thread = thread_current();
+}
+
+bool copy_init (struct page *pg, void *aux){
+	struct page *srcpg = aux;
+	memcpy(pg -> frame -> kva, srcpg -> frame -> kva, (size_t)PGSIZE);
+
+	return true;
 }
 
 /* Copy supplemental page table from src to dst */
 bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
-	// struct hash_iterator j;
+	lock_acquire(&src -> lock);
+	struct hash_iterator j;
 
-   	// hash_first (&j, src -> page_table);
-   	// while (hash_next (&j)){
-		// struct spt_entry *src_spt_entry = hash_entry (hash_cur (&j), struct spt_entry, elem);
-		// // vm_alloc_page(src_spt_entry -> vm_type, src_spt_entry -> vaddr, src_spt_entry -> is_writable);
-		// vm_claim_page() ?
-	//	spt_insert_page(dst, );
-	// }
+   	hash_first (&j, src -> page_table);
+  while (hash_next (&j)){
+		struct spt_entry *src_spt_entry = hash_entry (hash_cur (&j), struct spt_entry, elem);
+		debug_msg("copy 0x%x %d\n", src_spt_entry -> vaddr, VM_TYPE(src_spt_entry ->vm_type));
+		switch (VM_TYPE(src_spt_entry -> vm_type))
+		{
+		case VM_UNINIT:
+			vm_alloc_page_with_initializer(page_get_type(src_spt_entry->pg), 
+																	src_spt_entry -> vaddr, 
+																	src_spt_entry -> is_writable, 
+																	src_spt_entry -> pg -> uninit.init, 
+																	src_spt_entry -> pg -> uninit.aux);
+			break;
+		
+		default:
+			vm_alloc_page_with_initializer(page_get_type(src_spt_entry->pg), 
+																	src_spt_entry -> vaddr, 
+																	src_spt_entry -> is_writable, 
+																	copy_init, 
+																	src_spt_entry -> pg);
+			break;
+		}
+		vm_claim_page(src_spt_entry -> vaddr);
+	}
+	lock_release(&src -> lock);
+	return true;
+}
+
+void page_table_destructor(struct hash_elem *e, void *aux UNUSED){
+	// debug_msg("Debug: Page TAble destruction\n");
+	struct spt_entry *entry = hash_entry(e, struct spt_entry, elem);
+	// // free frame
+	// palloc_free_page(entry -> pg -> frame -> kva);
+	free(entry -> pg -> frame);
+	// free type page
+	(entry -> pg -> operations -> destroy) (entry -> pg);
+	entry -> pg -> operations = NULL;
+	entry -> pg -> va = NULL;
+
+
+	free(entry -> pg);
+	free(entry);
 }
 
 /* Free the resource hold by the supplemental page table */
@@ -262,13 +310,10 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-	struct hash_iterator j;
-
-   	hash_first (&j, spt -> page_table);
-   	while (hash_next (&j)){
-		struct spt_entry *f = hash_entry (hash_cur (&j), struct spt_entry, elem);
-		destroy(f -> pg);
-	}
+	lock_acquire(&spt->lock);
+	// hash_destroy(spt->page_table, page_table_destructor);
+	hash_clear(spt -> page_table, page_table_destructor);
+	lock_release(&spt->lock);
 }
 
 unsigned
