@@ -73,6 +73,11 @@ syscall_init (void) {
 void
 syscall_handler (struct intr_frame *f UNUSED) {
 	debug_msg("SYSCALL %d from %d \n", f->R.rax, thread_current() -> tid);
+	#ifdef VM
+		thread_current() -> stack_ptr = f -> rsp;
+		debug_msg("SYSCALL %d from %d rsp: 0x%x\n", f->R.rax, thread_current() -> tid,f->rsp );
+	#endif 
+	
 	switch (f->R.rax)
 	{
 	case SYS_HALT:
@@ -235,9 +240,9 @@ int filesize (int fd UNUSED) {
 
 int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 	debug_msg("SYSCALL_READ\n");
-
+	
 	if (!pml4_get_page(thread_current() -> pml4, buffer)){
-		debug_msg("Not readable\n");
+		debug_msg("Not readable 0x%x\n", buffer);
 		exit(-1);
 	}
 

@@ -87,7 +87,7 @@ struct page_operations {
 struct spt_entry {
 	struct page *pg;
 	struct hash_elem elem;
-	enum vm_type;
+	enum vm_type vm_type;
 	void *vaddr;
 	void *paddr;
 	bool is_writable;

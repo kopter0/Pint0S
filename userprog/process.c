@@ -525,7 +525,7 @@ load (const char *file_name, struct intr_frame *if_) {
 
 	if_ -> rsp -= 8;
 	*(void **) if_ -> rsp = (void *)0;
-
+	debug_msg("rsp in load: 0x%x\n", if_ -> rsp);
 	if_ -> R.rdi = argc;
 	if_ -> R.rsi = if_ -> rsp + 8;
 
@@ -698,7 +698,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	file_seek(file, lsi -> ofs);
 	 
 	debug_msg("DEBUG: load_addr 0x%x\n", lsi->upage);
-
+	
 	int actual_read = file_read(file, page -> frame -> kva, (off_t)lsi -> read_bytes);	
 	debug_msg("DEBUG: read: %d, should %d\n", actual_read, lsi ->read_bytes);
 	if (actual_read != (int) lsi -> read_bytes){
@@ -732,7 +732,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 	ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
 	ASSERT (pg_ofs (upage) == 0);
 	ASSERT (ofs % PGSIZE == 0);
-
+	
 	while (read_bytes > 0 || zero_bytes > 0) {
 		/* Do calculate how to fill this page.
 		 * We will read PAGE_READ_BYTES bytes from FILE
@@ -761,6 +761,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		// my advance
 		ofs += (off_t)page_read_bytes;
 	}
+	
 
 	return true;
 }

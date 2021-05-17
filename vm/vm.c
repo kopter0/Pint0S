@@ -8,10 +8,11 @@
 #include "lib/kernel/hash.h"
 #include "devices/input.h"
 #include "string.h"
+#include "vm/uninit.h"
 #include <stdio.h>
 #define DEBUG
 // int debug_msg (const char *format, ...);
-
+#define STACK_LIMIT (1024 * 1024 * 8) 
 
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
@@ -75,13 +76,15 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 				break;
 			/*TO_DO: VM_PAGE_CACHE*/
 			default:
-				PANIC("no match vm_type");
+				initializer = &anon_initializer;
+				//PANIC("no match vm_type");
 				break;
 			}
 			
 			uninit_new(new_page, upage ,init, type, aux, initializer);
 		/* TODO: Insert the page into the spt. */
 		bool insert_succ = spt_insert_page(spt, new_page);
+		
 		return insert_succ;
 	}
 	return false;
@@ -175,6 +178,15 @@ vm_get_frame (void) {
 /* Growing the stack. */
 static void
 vm_stack_growth (void *addr UNUSED) {
+	bool succ;
+	void *addr_rounded = pg_round_down(addr);
+	debug_msg("DEBUG: addr_rounded: 0x%x\n", addr_rounded);
+	vm_alloc_page(VM_ANON + VM_MARKER_0, addr_rounded, true);
+	succ = vm_claim_page(addr_rounded);
+	thread_current() -> tf.rsp = addr;
+	if (succ == false)
+		PANIC("stack growth failed");
+	//debug_msg("DEBUG stack growth 0x%x\n", pml4_get_page(thread_current() -> pml4, addr));
 }
 
 /* Handle the fault on write_protected page */
@@ -188,13 +200,31 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 		bool user UNUSED, bool write UNUSED, bool not_present UNUSED) {
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	struct page *page = spt_find_page(spt ,pg_round_down(addr));
+	bool success = true;
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
 	if (page == NULL) {
-		PANIC("PAGE DOES NOT EXIST 0x%x", pg_round_down(addr));
+		uintptr_t rsp;
+		if (write){
+			if (user){
+					rsp = f -> rsp;
+			}else{
+				rsp = thread_current() -> stack_ptr;
+			}
+
+			if ((addr != NULL) && (addr <= rsp ) && (addr >= 0x08048000) && (addr >= rsp - 32)){
+				vm_stack_growth(addr);
+				debug_msg("DEBUG stack growth %d\n",pg_round_down(addr) - rsp);
+			}else {
+				PANIC("LIMIT exceeded");
+			}
+		}
+		 
+	}else{
+		success = vm_do_claim_page (page);
 	}
 
-	return vm_do_claim_page (page);
+	return success;
 }
 
 /* Free the page.
@@ -230,8 +260,10 @@ vm_do_claim_page (struct page *page) {
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	page -> spt_entry -> paddr = frame -> kva;
 	// pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, page->spt_entry->is_writable);
-	pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, true);
-
+	if (!pml4_get_page(thread_current() -> pml4, page -> va)){
+		debug_msg("Do claim page: upage: 0x%x\n", page -> va );
+		pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, true);
+	}
 	return swap_in (page, frame->kva);
 }
 
@@ -247,14 +279,18 @@ bool
 supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 		struct supplemental_page_table *src UNUSED) {
 	// struct hash_iterator j;
-
+	// bool succ = false;
    	// hash_first (&j, src -> page_table);
    	// while (hash_next (&j)){
-		// struct spt_entry *src_spt_entry = hash_entry (hash_cur (&j), struct spt_entry, elem);
-		// // vm_alloc_page(src_spt_entry -> vm_type, src_spt_entry -> vaddr, src_spt_entry -> is_writable);
-		// vm_claim_page() ?
-	//	spt_insert_page(dst, );
+	// 	struct spt_entry *src_spt_entry = hash_entry (hash_cur (&j), struct spt_entry, elem);
+	//     succ = vm_alloc_page(page_get_type(src_spt_entry -> pg), src_spt_entry -> vaddr, src_spt_entry -> is_writable);
+	// 	succ = vm_claim_page(src_spt_entry -> vaddr);
+
+	// 	struct page *pg = spt_find_page (&thread_current() -> spt, src_spt_entry -> vaddr);
+	// 	succ = spt_insert_page(dst, pg);
 	// }
+	// return succ;
+
 }
 
 /* Free the resource hold by the supplemental page table */
@@ -262,13 +298,13 @@ void
 supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	/* TODO: Destroy all the supplemental_page_table hold by thread and
 	 * TODO: writeback all the modified contents to the storage. */
-	struct hash_iterator j;
+	// struct hash_iterator j;
 
-   	hash_first (&j, spt -> page_table);
-   	while (hash_next (&j)){
-		struct spt_entry *f = hash_entry (hash_cur (&j), struct spt_entry, elem);
-		destroy(f -> pg);
-	}
+   	// hash_first (&j, spt -> page_table);
+   	// while (hash_next (&j)){
+	// 	struct spt_entry *f = hash_entry (hash_cur (&j), struct spt_entry, elem);
+	// 	destroy(f -> pg);
+	// }
 }
 
 unsigned
