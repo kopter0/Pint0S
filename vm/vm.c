@@ -104,6 +104,7 @@ spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
    	while (hash_next (&i))
 	{
 		struct spt_entry *f = hash_entry (hash_cur (&i), struct spt_entry, elem);
+		// debug_msg("SPT ENTRY 0x%x, trying to find 0x%x, found %d\n", f -> vaddr, va, f -> vaddr == va);
 		if (f -> vaddr == va){
 			page = f -> pg;
 		}
@@ -182,9 +183,14 @@ static void
 vm_stack_growth (void *addr UNUSED) {
 	bool succ;
 	void *addr_rounded = pg_round_down(addr);
-	debug_msg("DEBUG: addr_rounded: 0x%x\n", addr_rounded);
-	vm_alloc_page(VM_ANON + VM_MARKER_0, addr_rounded, true);
-	succ = vm_claim_page(addr_rounded);
+	debug_msg("DEBUG: addr_rounded: 0x%x, 0x%x\n", addr_rounded, thread_current() -> stack_ptr);
+	while (thread_current() -> stack_ptr - PGSIZE > addr_rounded){
+		debug_msg("Claiming 0x%x\n", addr_rounded);
+		vm_alloc_page(VM_ANON + VM_MARKER_0, addr_rounded, true);
+		succ &= vm_claim_page(addr_rounded);
+		addr_rounded += PGSIZE;
+	}
+	succ = true;
 	thread_current() -> tf.rsp = addr;
 	if (succ == false)
 		PANIC("stack growth failed");
@@ -203,20 +209,22 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	struct page *page = spt_find_page(spt ,pg_round_down(addr));
 	bool success = true;
+	debug_msg("HANDLING FAULT: user: %d write:%d not_present:%d\n", user, write, not_present);
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
 	if (page == NULL) {
 		uintptr_t rsp;
 		if (write){
 			if (user){
-					rsp = f -> rsp;
+					rsp = thread_current() -> stack_ptr;
 			}else{
 				rsp = thread_current() -> stack_ptr;
 			}
 
-			if ((addr != NULL) && (addr <= rsp ) && (addr >= 0x08048000) && (addr >= rsp - 32)){
+			debug_msg("HANDLING FAULT: FADDR: 0x%x, RSP: 0x%x\n", addr, rsp);
+			if ((addr != NULL) && (addr <= rsp)){
 				vm_stack_growth(addr);
-				debug_msg("DEBUG stack growth %d\n",pg_round_down(addr) - rsp);
+				debug_msg("DEBUG stack growth %d\n",rsp - (uintptr_t)pg_round_down(addr));
 			}else {
 				PANIC("LIMIT exceeded");
 			}
@@ -246,9 +254,6 @@ vm_claim_page (void *va UNUSED) {
 	struct page *page = spt_find_page(&thread_current() -> spt, va);
 	if (page == NULL)
 		PANIC("no page 0x%x", va);
-	/* TODO: Fill this function */
-	// page -> va = va;
-	// page -> operations = (struct page_operations *) calloc((size_t) 1, sizeof(struct page_operations));
 
 	return vm_do_claim_page (page);
 }

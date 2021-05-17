@@ -242,7 +242,7 @@ int read (int fd UNUSED, void *buffer UNUSED, unsigned length UNUSED){
 	debug_msg("SYSCALL_READ\n");
 	
 	if (!pml4_get_page(thread_current() -> pml4, buffer)){
-		if (!vm_try_handle_fault(&thread_current() -> tf, buffer, true, false, true)){
+		if (!vm_try_handle_fault(&thread_current() -> tf, buffer, true, true, true)){
 			debug_msg("Not readable\n");
 			exit(-1);
 			
