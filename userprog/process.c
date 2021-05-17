@@ -220,7 +220,6 @@ process_exec (void *f_name) {
 
 	/* And then load the binary */
 	success = load(file_name, &_if);
-
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	// sema_up(&thread_current() -> child_info.child_load_sema);
@@ -693,20 +692,24 @@ lazy_load_segment (struct page *page, void *aux) {
 	/* TODO: This called when the first page fault occurs on address VA. */
 	/* TODO: VA is available when calling this function. */
 	struct load_segment_info * lsi = (struct load_segment_info *) aux;
-	lock_acquire(&file_lock);
-	struct file* file = filesys_open(thread_current() -> name);
+	bool should_acquire = !lock_held_by_current_thread(&file_lock);
+	if (should_acquire)
+		lock_acquire(&file_lock);
+	debug_msg("LAZY: %s\n", thread_current() -> name);
+	// struct file* file = filesys_open(thread_current() -> name);
+	struct file* file = filesys_open(lsi -> filename);
 	file_seek(file, lsi -> ofs);
 	 
 	debug_msg("DEBUG: load_addr 0x%x\n", lsi->upage);
-	
-	int actual_read = file_read(file, page -> frame -> kva, (off_t)lsi -> read_bytes);	
-	debug_msg("DEBUG: read: %d, should %d\n", actual_read, lsi ->read_bytes);
+
+	int actual_read = file_read(file, page -> frame -> kva, (off_t)lsi -> read_bytes);
 	if (actual_read != (int) lsi -> read_bytes){
 		PANIC("Couldnt write");
 		return false;
 	}
 	file_close(file);
-	lock_release(&file_lock);
+	if (should_acquire)
+		lock_release(&file_lock);
 
 	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
 	return true;
@@ -744,6 +747,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		void *aux = calloc((size_t) 1, sizeof(struct load_segment_info));
 		struct load_segment_info *lsi = (struct load_segment_info*) aux;
 		lsi -> file = file;
+		lsi -> filename = thread_current() -> name;
 		lsi -> ofs = ofs;
 		lsi -> upage = upage;
 		lsi -> read_bytes = page_read_bytes;

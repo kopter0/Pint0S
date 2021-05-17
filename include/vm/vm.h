@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include "threads/palloc.h"
 #include <hash.h>
+#include "threads/synch.h"
 
 enum vm_type {
 	/* page not initialized */
@@ -96,10 +97,13 @@ struct spt_entry {
 
 struct supplemental_page_table {
 	struct hash *page_table;
+	struct lock lock;
+	struct thread *thread;
 };
 
 struct load_segment_info {
 	struct file *file;
+	char * filename;
 	off_t ofs;
 	uint8_t *upage;
 	uint32_t read_bytes;

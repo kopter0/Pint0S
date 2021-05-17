@@ -34,7 +34,6 @@ struct child_info {
 	struct thread* parent;
 };
 
-struct lock hash_lock;
 
 /* Thread identifier type.
    You can redefine this to whatever type you like. */

@@ -65,4 +65,8 @@ uninit_destroy (struct page *page) {
 	struct uninit_page *uninit UNUSED = &page->uninit;
 	/* TODO: Fill this function.
 	 * TODO: If you don't have anything to do, just return. */
+	debug_msg("UNINT DEsTroy\n");
+	uninit -> page_initializer = NULL;
+	uninit -> aux = NULL; // TODO: dealloc properly
+	uninit -> page_initializer = NULL;
 }
