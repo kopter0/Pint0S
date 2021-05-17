@@ -10,8 +10,8 @@
 #include "string.h"
 #include "vm/uninit.h"
 #include <stdio.h>
-// #define DEBUG
-// int debug_msg (const char *format, ...);
+#define DEBUG
+int debug_msg (const char *format, ...);
 #define STACK_LIMIT (1024 * 1024 * 8) 
 
 
@@ -212,6 +212,9 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	debug_msg("HANDLING FAULT: user: %d write:%d not_present:%d\n", user, write, not_present);
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
+	if (!not_present){
+		return false;
+	}
 	if (page == NULL) {
 		uintptr_t rsp;
 		if (write){
@@ -222,7 +225,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 			}
 
 			debug_msg("HANDLING FAULT: FADDR: 0x%x, RSP: 0x%x\n", addr, rsp);
-			if ((addr != NULL) && (addr <= rsp)){
+			if ((addr != NULL) && (addr <= rsp ) && (addr < KERN_BASE)){
 				vm_stack_growth(addr);
 				debug_msg("DEBUG stack growth %d\n",rsp - (uintptr_t)pg_round_down(addr));
 			}else {
@@ -269,7 +272,9 @@ vm_do_claim_page (struct page *page) {
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	page -> spt_entry -> paddr = frame -> kva;
 	// pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, page->spt_entry->is_writable);
+	
 	pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, true);
+	
 	page -> spt_entry -> vm_type = page_get_type(page);
 
 	return swap_in (page, frame->kva);
