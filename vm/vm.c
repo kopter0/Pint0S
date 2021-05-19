@@ -329,18 +329,18 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 
 void page_table_destructor(struct hash_elem *e, void *aux UNUSED){
 	// debug_msg("Debug: Page TAble destruction\n");
-	struct spt_entry *entry = hash_entry(e, struct spt_entry, elem);
+//	struct spt_entry *entry = hash_entry(e, struct spt_entry, elem);
 	// // free frame
-	// palloc_free_page(entry -> pg -> frame -> kva);
-	free(entry -> pg -> frame);
-	// free type page
-	(entry -> pg -> operations -> destroy) (entry -> pg);
-	entry -> pg -> operations = NULL;
-	entry -> pg -> va = NULL;
+// 	// palloc_free_page(entry -> pg -> frame -> kva);
+// 	free(entry -> pg -> frame);
+// 	// free type page
+// 	(entry -> pg -> operations -> destroy) (entry -> pg);
+// 	entry -> pg -> operations = NULL;
+// 	entry -> pg -> va = NULL;
 
 
-	free(entry -> pg);
-	free(entry);
+// 	free(entry -> pg);
+// 	free(entry);
 }
 
 /* Free the resource hold by the supplemental page table */
@@ -350,7 +350,7 @@ supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	 * TODO: writeback all the modified contents to the storage. */
 	lock_acquire(&spt->lock);
 	// hash_destroy(spt->page_table, page_table_destructor);
-	hash_clear(spt -> page_table, page_table_destructor);
+	hash_clear(spt -> page_table, vm_dealloc_page);
 	lock_release(&spt->lock);
 }
 

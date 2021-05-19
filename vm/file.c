@@ -47,6 +47,7 @@ file_backed_swap_out (struct page *page) {
 static void
 file_backed_destroy (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
+	
 }
 
 /* Do the mmap */
@@ -65,7 +66,10 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 	}
 	// file_close(lsi -> file);
 	lock_release(&file_lock);
-
+	page -> file.file = lsi -> file;
+	page -> file.length = lsi -> read_bytes;
+	page -> file.offset = lsi -> ofs;
+	 
 	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
 	return true;
 
@@ -113,12 +117,12 @@ do_munmap (void *addr) {
 	if (page_get_type(page) != VM_FILE){
 		PANIC("not VM_FILE");
 	}
-	file_reopen(page -> file.file);
-	lock_acquire(&file_lock);
-	struct file *file = page -> file.file;
 	
+	lock_acquire(&file_lock);
+	
+	struct file *file = page -> file.file;
+	file_reopen(file);
 	void *init_addr = addr;
-	off_t length = file_length(file);
 	while (init_addr < addr + file_length(file)){
 		struct page *pg = spt_find_page(&thread_current() -> spt, init_addr);
 		if (page_get_type(pg) != VM_FILE){
