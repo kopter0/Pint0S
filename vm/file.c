@@ -47,6 +47,9 @@ file_backed_swap_out (struct page *page) {
 static void
 file_backed_destroy (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
+	file_page ->file = NULL;
+	page->spt_entry=NULL;
+	
 }
 
 /* Do the mmap */
@@ -65,6 +68,10 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 	}
 	// file_close(lsi -> file);
 	lock_release(&file_lock);
+
+	page->file.file = lsi->file;
+	page->file.length = lsi->read_bytes;
+	page->file.offset = lsi->ofs;
 
 	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
 	return true;
