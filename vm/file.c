@@ -114,6 +114,7 @@ do_munmap (void *addr) {
 	if (page_get_type(page) != VM_FILE){
 		PANIC("not VM_FILE");
 	}
+	file_reopen(page -> file.file);
 	lock_acquire(&file_lock);
 	struct file *file = page -> file.file;
 	
