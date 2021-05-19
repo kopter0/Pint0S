@@ -10,7 +10,7 @@
 #include "string.h"
 #include "vm/uninit.h"
 #include <stdio.h>
-#define DEBUG
+// #define DEBUG
 int debug_msg (const char *format, ...);
 #define STACK_LIMIT (1024 * 1024 * 8) 
 

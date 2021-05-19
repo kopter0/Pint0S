@@ -371,6 +371,12 @@ void remove_fd(int fd){
 }
 
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
+
+	if (fd < 2 || get_file_by_fd(fd) == NULL){
+		debug_msg("MMAP fd 1 or 0\n");
+		exit(-1);
+	}
+
 	if (!filesize (fd)){
 		debug_msg("MMAP file size 0\n");
 		return NULL;
@@ -385,12 +391,8 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
 		exit(-1);
 	}
 
-	if (fd == 1 || fd == 0){
-		debug_msg("MMAP fd 1 or 0\n");
-		exit(-1);
-	}
-
 	return do_mmap(addr, length, writable, get_file_by_fd(fd), offset);
+	
 }
 
 void munmap (void *addr){
