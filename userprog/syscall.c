@@ -42,6 +42,8 @@ struct file * get_file_by_fd(int fd);
 int get_new_fd(struct file *);
 void remove_fd(int fd);
 
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset);
+void munmap (void *addr);
 /* System call.
  *
  * Previously system call services was handled by the interrupt handler
@@ -134,6 +136,12 @@ syscall_handler (struct intr_frame *f UNUSED) {
 	
 	case SYS_CLOSE:
 		close((int) f->R.rdi);
+		break;
+	case SYS_MMAP:
+		f->R.rax = (uint64_t) mmap ((void*) f -> R.rdi, (size_t) f -> R.rsi, (int) f -> R.rdx, (int) f -> R.r10, (off_t) f -> R.r8);
+		break;
+	case SYS_MUNMAP:
+		munmap((void *) f -> R.rdi);
 		break;
 
 	default:
@@ -359,8 +367,36 @@ void remove_fd(int fd){
 			list_remove(e);
 			break;
 		}
-	}
+	} 
 }
+
+void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
+	if (!filesize (fd)){
+		debug_msg("MMAP file size 0\n");
+		return NULL;
+	}
+	if (pg_ofs(addr)){
+		debug_msg("MMAP not aligned\n");
+		exit(-1);
+	}
+
+	if (addr == NULL || length == 0){
+		debug_msg("MMAP address NULL or len 0\n");
+		exit(-1);
+	}
+
+	if (fd == 1 || fd == 0){
+		debug_msg("MMAP fd 1 or 0\n");
+		exit(-1);
+	}
+
+	return do_mmap(addr, length, writable, get_file_by_fd(fd), offset);
+}
+
+void munmap (void *addr){
+	do_munmap(addr);
+}
+
 
 // int
 // debug_msg (const char *format, ...) {
