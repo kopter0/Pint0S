@@ -110,4 +110,30 @@ do_mmap (void *addr, size_t length, int writable,
 /* Do the munmap */
 void
 do_munmap (void *addr) {
+	struct page *page = spt_find_page(&thread_current() -> spt, addr);
+	if (page_get_type(page) != VM_FILE){
+		PANIC("not VM_FILE");
+	}
+	lock_acquire(&file_lock);
+	struct file *file = page -> file.file;
+	
+	void *init_addr = addr;
+	off_t length = file_length(file);
+	while (init_addr < addr + file_length(file)){
+		struct page *pg = spt_find_page(&thread_current() -> spt, init_addr);
+		if (page_get_type(pg) != VM_FILE){
+			PANIC("not VM_FILE");
+		}
+		file_seek(file, pg -> file.offset);
+		off_t size = (pg -> file.length < PGSIZE) ? pg -> file.length : PGSIZE; 
+		off_t bytes_written = file_write (file, pg -> frame -> kva, size);
+		if (bytes_written < pg -> file.length){
+			debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, pg -> file.length);
+		}
+		init_addr += bytes_written;
+		spt_remove_page (&thread_current() -> spt, pg);
+	}
+	//file_close(file);
+	lock_release(&file_lock);
+
 }
