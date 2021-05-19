@@ -131,8 +131,8 @@ page_fault (struct intr_frame *f) {
 	   that caused the fault (that's f->rip). */
 
 	fault_addr = (void *) rcr2();
-	debug_msg("PAGE FAULT: addr: 0x%x rsp: 0x%x\n", fault_addr, f->rsp);
-	// printf("Fault addr: 0x%x\n", (unsigned int)fault_addr);
+	// debug_msg("PAGE FAULT: addr: 0x%x rsp: 0x%x\n", fault_addr, f->rsp);
+	
 	/* Turn interrupts back on (they were only off so that we could
 	   be assured of reading CR2 before it changed). */
 	intr_enable ();

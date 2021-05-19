@@ -96,20 +96,18 @@ struct page *
 spt_find_page (struct supplemental_page_table *spt UNUSED, void *va UNUSED) {
 	struct page *page = NULL;
 	/* TODO: Fill this function. */
+
+	if (hash_empty(spt -> page_table))
+		return NULL;
+
+	struct spt_entry se;
+	struct hash_elem *e;
+	se.vaddr = va;
 	lock_acquire(&spt -> lock);
-
-	struct hash_iterator i;
-
-   	hash_first (&i, spt -> page_table);
-   	while (hash_next (&i))
-	{
-		struct spt_entry *f = hash_entry (hash_cur (&i), struct spt_entry, elem);
-		// debug_msg("SPT ENTRY 0x%x, trying to find 0x%x, found %d\n", f -> vaddr, va, f -> vaddr == va);
-		if (f -> vaddr == va){
-			page = f -> pg;
-		}
-	}
+	e = hash_find(spt->page_table, &se.elem);
 	lock_release(&spt->lock);
+	page = e != NULL ? hash_entry(e, struct spt_entry, elem) -> pg : NULL; 
+
 	return page;
 }
 
