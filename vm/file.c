@@ -58,8 +58,6 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 	debug_msg("size %d\n", file_length(lsi->file));
 	ASSERT(lsi -> file != NULL);
 	file_seek(lsi -> file, lsi -> ofs);	 
-	// debug_msg("DEBUG: load_addr 0x%x\n", lsi->upage);
-	
 	int actual_read = file_read(lsi -> file, page -> frame -> kva, (off_t)lsi -> read_bytes);
 	if (actual_read != (int) lsi -> read_bytes){
 		PANIC("Couldnt write %d, %d\n",actual_read, lsi -> read_bytes);
@@ -102,6 +100,7 @@ do_mmap (void *addr, size_t length, int writable,
 		offset += page_read_bytes;
 		remained_len -= page_read_bytes;
 	}
+
 
 	return init_addr;
 }
