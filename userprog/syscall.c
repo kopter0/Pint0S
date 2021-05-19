@@ -367,15 +367,15 @@ void remove_fd(int fd){
 			list_remove(e);
 			break;
 		}
-	}
+	} 
 }
 
 void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
 	if (!filesize (fd)){
 		debug_msg("MMAP file size 0\n");
-		exit(-1);
+		return NULL;
 	}
-	if (!pg_ofs(addr)){
+	if (pg_ofs(addr)){
 		debug_msg("MMAP not aligned\n");
 		exit(-1);
 	}
@@ -387,11 +387,6 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
 
 	if (fd == 1 || fd == 0){
 		debug_msg("MMAP fd 1 or 0\n");
-		exit(-1);
-	}
-
-	if (!pml4_get_page(thread_current() -> pml4, addr)){
-		debug_msg("MMAP page not found\n");
 		exit(-1);
 	}
 
