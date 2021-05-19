@@ -129,6 +129,13 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 
 void
 spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
+	struct spt_entry se;
+	se.vaddr = page->va;
+	struct hash_elem *e = hash_delete(spt->page_table, &se.elem);
+	struct spt_entry *spte = hash_entry(e, struct spt_entry, elem);
+	spte->pg = NULL;
+	spte->paddr = NULL;
+	free(spte);
 	vm_dealloc_page (page);
 	return true;
 }
@@ -328,19 +335,17 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 }
 
 void page_table_destructor(struct hash_elem *e, void *aux UNUSED){
-	// debug_msg("Debug: Page TAble destruction\n");
-//	struct spt_entry *entry = hash_entry(e, struct spt_entry, elem);
-	// // free frame
-// 	// palloc_free_page(entry -> pg -> frame -> kva);
-// 	free(entry -> pg -> frame);
-// 	// free type page
-// 	(entry -> pg -> operations -> destroy) (entry -> pg);
-// 	entry -> pg -> operations = NULL;
-// 	entry -> pg -> va = NULL;
-
-
-// 	free(entry -> pg);
-// 	free(entry);
+	debug_msg("Debug: Page TAble destruction\n");
+	struct spt_entry *entry = hash_entry(e, struct spt_entry, elem);
+	entry -> pg -> frame -> page = NULL;
+	entry -> pg -> frame = NULL;
+	free(entry -> pg -> frame);
+	// free type page
+	// destroy(entry -> pg);
+	// free(entry -> pg);
+	vm_dealloc_page(entry -> pg);
+	entry -> paddr = NULL;
+	free(entry);
 }
 
 /* Free the resource hold by the supplemental page table */
