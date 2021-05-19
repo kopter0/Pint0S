@@ -388,8 +388,10 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
 
 	if (addr == NULL || length == 0){
 		debug_msg("MMAP address NULL or len 0\n");
-		exit(-1);
+		return NULL;
 	}
+
+	
 
 	return do_mmap(addr, length, writable, get_file_by_fd(fd), offset);
 	
