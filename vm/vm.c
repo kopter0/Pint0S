@@ -360,7 +360,7 @@ supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	 * TODO: writeback all the modified contents to the storage. */
 	lock_acquire(&spt->lock);
 	// hash_destroy(spt->page_table, page_table_destructor);
-	hash_clear(spt -> page_table, page_table_destructor);
+	hash_clear(spt -> page_table, vm_dealloc_page);
 	lock_release(&spt->lock);
 }
 

@@ -69,11 +69,10 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 	file_seek(lsi -> file, lsi->ofs);
 	// file_close(lsi -> file);
 	lock_release(&file_lock);
-
-	page->file.file = lsi->file;
-	page->file.length = lsi->read_bytes;
-	page->file.offset = lsi->ofs;
-
+	page -> file.file = lsi -> file;
+	page -> file.length = lsi -> read_bytes;
+	page -> file.offset = lsi -> ofs;
+	 
 	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
 
 	// return vm_claim_page(page->va);
@@ -122,9 +121,11 @@ do_munmap (void *addr) {
 	if (page_get_type(page) != VM_FILE){
 		PANIC("not VM_FILE");
 	}
-	lock_acquire(&file_lock);
-	struct file *file = page -> file.file;
 	
+	lock_acquire(&file_lock);
+	
+	struct file *file = page -> file.file;
+	file_reopen(file);
 	void *init_addr = addr;
 	off_t length = file_length(file);
 	while (init_addr < addr + length){
