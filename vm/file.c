@@ -57,16 +57,17 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 	struct load_segment_info *lsi = aux;	
 	debug_msg("LAZY_DO_MMAP: %d\n", lsi->ofs);
 	lock_acquire(&file_lock);
-	// lsi->file =  file_reopen(lsi -> file);
 	debug_msg("size %d\n", file_length(lsi->file));
 	ASSERT(lsi -> file != NULL);
+	lsi->file =  file_reopen(lsi -> file);
 	file_seek(lsi -> file, lsi -> ofs);	 
 	int actual_read = file_read(lsi -> file, page -> frame -> kva, (off_t)lsi -> read_bytes);
 	if (actual_read != (int) lsi -> read_bytes){
 		PANIC("Couldnt write %d, %d\n",actual_read, lsi -> read_bytes);
 		return false;
 	}
-	// file_close(lsi -> file);
+	file_seek(lsi -> file, 0);	
+	file_close(lsi -> file);
 	lock_release(&file_lock);
 	page -> file.file = lsi -> file;
 	page -> file.length = lsi -> read_bytes;
@@ -93,7 +94,7 @@ do_mmap (void *addr, size_t length, int writable,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 		void *aux = calloc((size_t) 1, sizeof(struct load_segment_info));
 		struct load_segment_info *lsi = (struct load_segment_info*) aux;
-		lsi -> file = file;
+		lsi -> file = file_reopen(file);
 		lsi -> filename = thread_current() -> name;
 		lsi -> ofs = offset;
 		lsi -> upage = addr;
@@ -130,16 +131,18 @@ do_munmap (void *addr) {
 		if (page_get_type(pg) != VM_FILE){
 			PANIC("not VM_FILE");
 		}
-		file_seek(file, pg -> file.offset);
-		off_t size = (pg -> file.length < PGSIZE) ? pg -> file.length : PGSIZE; 
-		off_t bytes_written = file_write (file, pg -> frame -> kva, size);
-		if (bytes_written < pg -> file.length){
-			debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, pg -> file.length);
+		if (pml4_is_dirty (thread_current() -> pml4, init_addr)){
+			file_seek(file, pg -> file.offset);
+			off_t size = (pg -> file.length < PGSIZE) ? pg -> file.length : PGSIZE; 
+			off_t bytes_written = file_write (file, pg -> frame -> kva, size);
+			if (bytes_written < pg -> file.length){
+				debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, pg -> file.length);
+			}
+			init_addr += bytes_written;
 		}
-		init_addr += bytes_written;
 		spt_remove_page (&thread_current() -> spt, pg);
 	}
-	//file_close(file);
+	file_close(file);
 	lock_release(&file_lock);
 
 }

@@ -12,7 +12,7 @@
 #include <stdio.h>
 #define STACK_LIMIT (1024 * 1024 * 8) 
 
-
+#define DEBUG
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void
@@ -337,8 +337,8 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 void page_table_destructor(struct hash_elem *e, void *aux UNUSED){
 	debug_msg("Debug: Page TAble destruction\n");
 	struct spt_entry *entry = hash_entry(e, struct spt_entry, elem);
-	entry -> pg -> frame -> page = NULL;
-	entry -> pg -> frame = NULL;
+	// entry -> pg -> frame -> page = NULL;
+	// entry -> pg -> frame = NULL;
 	free(entry -> pg -> frame);
 	// free type page
 	// destroy(entry -> pg);
@@ -355,7 +355,7 @@ supplemental_page_table_kill (struct supplemental_page_table *spt UNUSED) {
 	 * TODO: writeback all the modified contents to the storage. */
 	lock_acquire(&spt->lock);
 	// hash_destroy(spt->page_table, page_table_destructor);
-	hash_clear(spt -> page_table, vm_dealloc_page);
+	hash_clear(spt -> page_table, page_table_destructor);
 	lock_release(&spt->lock);
 }
 

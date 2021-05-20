@@ -185,9 +185,11 @@ int
 exec (const char *file UNUSED) {
 	debug_msg("SYSCALL_EXEC\n");
 	void *f = pml4_get_page(thread_current() -> pml4, file);
+	
 	if (!f)
+		debug_msg("EXEC: exit 0x%x\n", f);
 		exit(-1);
-	process_exec(f);
+	return process_exec(f);
 }
 
 int wait (pid_t pid) {
@@ -222,8 +224,8 @@ open (const char *file UNUSED) {
 	debug_msg("SYSCALL_OPEN %s\n", file);
 	if (!pml4_get_page(thread_current()->pml4, file)){
 		exit(-1);
-	}
-
+	} 
+ 
 	lock_acquire(&file_lock);
 	struct file *f = filesys_open(file);
 	if (strcmp(file, thread_current()->name) == 0){
@@ -374,24 +376,30 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
 
 	if (fd < 2 || get_file_by_fd(fd) == NULL){
 		debug_msg("MMAP fd 1 or 0\n");
-		exit(-1);
+		return NULL;
 	}
+
+	//debug_msg("MMAP %d", get_file_by_fd(fd) == NULL);
 
 	if (!filesize (fd)){
 		debug_msg("MMAP file size 0\n");
 		return NULL;
 	}
+	debug_msg("MMAP offset : %d,  %d\n", pg_ofs(addr), offset);
 	if (pg_ofs(addr)){
 		debug_msg("MMAP not aligned\n");
-		exit(-1);
+		return NULL;
 	}
 
 	if (addr == NULL || length == 0){
 		debug_msg("MMAP address NULL or len 0\n");
 		return NULL;
 	}
-
-	
+	//debug_msg("MMAP offset : %d,  %d\n", file_length(get_file_by_fd(fd)), offset);
+	if (offset % PGSIZE != 0){
+		debug_msg("MMAP offset : %d\n", offset);
+		return NULL;
+	}
 
 	return do_mmap(addr, length, writable, get_file_by_fd(fd), offset);
 	

@@ -219,14 +219,20 @@ process_exec (void *f_name) {
 	process_cleanup ();
 
 	/* And then load the binary */
+	// #ifdef VM
+	// supplemental_page_table_init (&thread_current()->spt);
+	// thread_current() -> pml4 = pml4_create();
+	// #endif
 	success = load(file_name, &_if);
+	debug_msg("LOAD: %d\n", success);
 	/* If load failed, quit. */
 	palloc_free_page (file_name);
 	// sema_up(&thread_current() -> child_info.child_load_sema);
 	sema_up(&find_in_history(thread_current() -> tid) -> sema_load);
 	if (!success)
+		debug_msg("process_exec: exit here\n");
 		exit(-1);
-
+	debug_msg("LOAD!\n");
 	/* Start switched process. */
 	do_iret (&_if);
 	NOT_REACHED ();
@@ -754,7 +760,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		lsi -> zero_bytes = page_zero_bytes;
 		lsi -> is_writable = writable;
 
-		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
+		if (!vm_alloc_page_with_initializer (VM_FILE, upage,
 					writable, lazy_load_segment, aux))
 			return false;
 
