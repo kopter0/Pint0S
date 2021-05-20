@@ -294,7 +294,9 @@ process_cleanup (void) {
 	struct thread *curr = thread_current ();
 
 #ifdef VM
-	supplemental_page_table_kill (&curr->spt);
+	if (curr->spt.page_table) {
+		supplemental_page_table_kill (&curr->spt);
+	}
 #endif
 
 	uint64_t *pml4;
@@ -697,21 +699,26 @@ lazy_load_segment (struct page *page, void *aux) {
 		lock_acquire(&file_lock);
 	debug_msg("LAZY: %s\n", thread_current() -> name);
 	// struct file* file = filesys_open(thread_current() -> name);
-	struct file* file = filesys_open(lsi -> filename);
-	file_seek(file, lsi -> ofs);
-	 
+	// struct file* file = filesys_open(lsi -> filename);
+	file_seek(lsi -> file, lsi -> ofs);
 	debug_msg("DEBUG: load_addr 0x%x\n", lsi->upage);
-
-	int actual_read = file_read(file, page -> frame -> kva, (off_t)lsi -> read_bytes);
+	pml4_clear_page(thread_current() ->pml4 ,lsi -> upage);
+	pml4_set_page(thread_current() -> pml4, lsi -> upage, page -> frame -> kva, true);
+	debug_msg("Before write\n");
+	int actual_read = file_read(lsi -> file, page -> frame -> kva, (off_t)lsi -> read_bytes);
 	if (actual_read != (int) lsi -> read_bytes){
 		PANIC("Couldnt write");
 		return false;
 	}
-	file_close(file);
+	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
+	pml4_clear_page(thread_current() ->pml4 ,lsi -> upage);
+	pml4_set_page(thread_current() -> pml4, lsi -> upage, page -> frame -> kva, page -> writable);
+	
+	debug_msg("After write\n");
+	file_close(lsi->file);
 	if (should_acquire)
 		lock_release(&file_lock);
 
-	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
 	return true;
 }
 
@@ -746,7 +753,8 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		/* TODO: Set up aux to pass information to the lazy_load_segment. */
 		void *aux = calloc((size_t) 1, sizeof(struct load_segment_info));
 		struct load_segment_info *lsi = (struct load_segment_info*) aux;
-		lsi -> file = file;
+		// lsi -> file = file;
+		lsi -> file = file_reopen(file);
 		lsi -> filename = thread_current() -> name;
 		lsi -> ofs = ofs;
 		lsi -> upage = upage;

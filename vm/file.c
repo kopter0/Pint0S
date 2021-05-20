@@ -3,6 +3,7 @@
 #include "vm/vm.h"
 #include "threads/vaddr.h"
 #include "userprog/syscall.h"
+#include "threads/mmu.h"
 
 static bool file_backed_swap_in (struct page *page, void *kva);
 static bool file_backed_swap_out (struct page *page);
@@ -55,9 +56,8 @@ file_backed_destroy (struct page *page) {
 /* Do the mmap */
 static bool lazy_do_mmap(struct page* page, void* aux){
 	struct load_segment_info *lsi = aux;	
-	debug_msg("LAZY_DO_MMAP: %d\n", lsi->ofs);
+	debug_msg("LAZY_DO_MMAP\n");
 	lock_acquire(&file_lock);
-	// lsi->file =  file_reopen(lsi -> file);
 	debug_msg("size %d\n", file_length(lsi->file));
 	ASSERT(lsi -> file != NULL);
 	file_seek(lsi -> file, lsi -> ofs);	 
@@ -66,6 +66,7 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 		PANIC("Couldnt write %d, %d\n",actual_read, lsi -> read_bytes);
 		return false;
 	}
+	file_seek(lsi -> file, lsi->ofs);
 	// file_close(lsi -> file);
 	lock_release(&file_lock);
 
@@ -74,8 +75,9 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 	page->file.offset = lsi->ofs;
 
 	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
-	return true;
 
+	// return vm_claim_page(page->va);
+	return true;
 
 }
 
@@ -94,7 +96,7 @@ do_mmap (void *addr, size_t length, int writable,
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 		void *aux = calloc((size_t) 1, sizeof(struct load_segment_info));
 		struct load_segment_info *lsi = (struct load_segment_info*) aux;
-		lsi -> file = file;
+		lsi -> file = file_reopen(file);
 		lsi -> filename = thread_current() -> name;
 		lsi -> ofs = offset;
 		lsi -> upage = addr;
@@ -125,21 +127,24 @@ do_munmap (void *addr) {
 	
 	void *init_addr = addr;
 	off_t length = file_length(file);
-	while (init_addr < addr + file_length(file)){
+	while (init_addr < addr + length){
+		off_t bytes_written = PGSIZE;
 		struct page *pg = spt_find_page(&thread_current() -> spt, init_addr);
-		if (page_get_type(pg) != VM_FILE){
-			PANIC("not VM_FILE");
-		}
-		file_seek(file, pg -> file.offset);
-		off_t size = (pg -> file.length < PGSIZE) ? pg -> file.length : PGSIZE; 
-		off_t bytes_written = file_write (file, pg -> frame -> kva, size);
-		if (bytes_written < pg -> file.length){
-			debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, pg -> file.length);
+		if (pg && pml4_is_dirty(thread_current() -> pml4, init_addr)){
+			if (page_get_type(pg) != VM_FILE){
+				PANIC("not VM_FILE");
+			}
+			file_seek(file, pg -> file.offset);
+			off_t size = (pg -> file.length < PGSIZE) ? pg -> file.length : PGSIZE; 
+			bytes_written = file_write (file, pg -> frame -> kva, size);
+			if (bytes_written < pg -> file.length){
+				debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, pg -> file.length);
+			}
 		}
 		init_addr += bytes_written;
 		spt_remove_page (&thread_current() -> spt, pg);
 	}
-	//file_close(file);
+	file_close(file);
 	lock_release(&file_lock);
 
 }

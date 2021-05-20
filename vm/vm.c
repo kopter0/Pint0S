@@ -11,6 +11,7 @@
 #include "vm/uninit.h"
 #include <stdio.h>
 #define STACK_LIMIT (1024 * 1024 * 8) 
+#define USER_STACK_LIMIT 0x47380000
 
 
 /* Initializes the virtual memory subsystem by invoking each subsystem's
@@ -81,6 +82,7 @@ vm_alloc_page_with_initializer (enum vm_type type, void *upage, bool writable,
 			}
 			
 			uninit_new(new_page, upage ,init, type, aux, initializer);
+			new_page -> writable = writable;
 		/* TODO: Insert the page into the spt. */
 		bool insert_succ = spt_insert_page(spt, new_page);
 		
@@ -118,6 +120,7 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 	struct spt_entry* new_entry = (struct spt_entry*) calloc(sizeof(struct spt_entry), 1);
 	new_entry -> pg = page;
 	new_entry -> vaddr = page -> va;
+	new_entry -> is_writable = page -> writable;
 	page -> spt_entry = new_entry;
 	lock_acquire(&spt->lock);
 	hash_insert(spt -> page_table, &new_entry -> elem);
@@ -212,7 +215,7 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 	struct supplemental_page_table *spt UNUSED = &thread_current ()->spt;
 	struct page *page = spt_find_page(spt ,pg_round_down(addr));
 	bool success = true;
-	debug_msg("HANDLING FAULT: user: %d write:%d not_present:%d\n", user, write, not_present);
+	debug_msg("HANDLING FAULT: addr: 0x%x, user: %d write:%d not_present:%d\n", addr, user, write, not_present);
 	/* TODO: Validate the fault */
 	/* TODO: Your code goes here */
 	if (!not_present){
@@ -227,12 +230,14 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 				rsp = thread_current() -> stack_ptr;
 			}
 
-			debug_msg("HANDLING FAULT: FADDR: 0x%x, RSP: 0x%x\n", addr, rsp);
-			if ((addr != NULL) && (addr <= rsp ) && (addr < KERN_BASE)){
+
+			debug_msg("HANDLING FAULT: FADDR: 0x%x, RSP: 0x%x, lim: 0x%x, 0x%x\n", addr, rsp);
+			if ((addr != NULL) && (addr <= rsp ) && (addr < KERN_BASE) && (addr > USER_STACK_LIMIT)){
 				vm_stack_growth(addr);
 				debug_msg("DEBUG stack growth %d\n",rsp - (uintptr_t)pg_round_down(addr));
 			}else {
-				PANIC("LIMIT exceeded");
+				return false;
+				// PANIC("LIMIT exceeded");
 			}
 		}else{
 			success = false;
@@ -274,10 +279,10 @@ vm_do_claim_page (struct page *page) {
 	page->frame = frame;
 	/* TODO: Insert page table entry to map page's VA to frame's PA. */
 	page -> spt_entry -> paddr = frame -> kva;
-	// pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, page->spt_entry->is_writable);
 	
-	pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, true);
-	
+	bool succ = pml4_set_page(thread_current() -> pml4, page -> va, frame -> kva, page ->spt_entry ->is_writable);
+	ASSERT (succ);
+
 	page -> spt_entry -> vm_type = page_get_type(page);
 
 	return swap_in (page, frame->kva);
@@ -337,8 +342,8 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 void page_table_destructor(struct hash_elem *e, void *aux UNUSED){
 	debug_msg("Debug: Page TAble destruction\n");
 	struct spt_entry *entry = hash_entry(e, struct spt_entry, elem);
-	entry -> pg -> frame -> page = NULL;
-	entry -> pg -> frame = NULL;
+	// entry -> pg -> frame -> page = NULL;
+	// entry -> pg -> frame = NULL;
 	free(entry -> pg -> frame);
 	// free type page
 	// destroy(entry -> pg);

@@ -49,6 +49,7 @@ struct page {
 
 	/* Your implementation */
 	struct spt_entry *spt_entry;
+	bool writable;
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union {
