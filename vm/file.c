@@ -138,10 +138,14 @@ do_munmap (void *addr) {
 			}
 			file_seek(file, pg -> file.offset);
 			off_t size = (pg -> file.length < PGSIZE) ? pg -> file.length : PGSIZE; 
+			pml4_clear_page(thread_current() -> pml4, init_addr);
+			pml4_set_page(thread_current() -> pml4, init_addr, pg -> frame -> kva, true);
 			bytes_written = file_write (file, pg -> frame -> kva, size);
 			if (bytes_written < pg -> file.length){
 				debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, pg -> file.length);
 			}
+			pml4_clear_page(thread_current() -> pml4, init_addr);
+			pml4_set_page(thread_current() -> pml4, init_addr, pg -> frame -> kva, pg -> writable);
 		}
 		spt_remove_page (&thread_current() -> spt, pg);
 	}
