@@ -307,7 +307,6 @@ int write (int fd UNUSED, const void *buffer UNUSED, unsigned length UNUSED){
 
 void seek (int fd UNUSED, unsigned position UNUSED) {
 	debug_msg("SYSCALL_SEEK\n");
-
 	struct file *f = get_file_by_fd(fd);
 	if (!f)
 		return;
