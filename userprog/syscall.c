@@ -186,9 +186,10 @@ exec (const char *file UNUSED) {
 	debug_msg("SYSCALL_EXEC\n");
 	void *f = pml4_get_page(thread_current() -> pml4, file);
 	
-	if (!f)
+	if (!f){
 		debug_msg("EXEC: exit 0x%x\n", f);
 		exit(-1);
+	}
 	return process_exec(f);
 }
 
