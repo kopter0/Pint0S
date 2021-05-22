@@ -403,7 +403,7 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
 
 	return do_mmap(addr, length, writable, get_file_by_fd(fd), offset);
 	
-}
+} 
 
 void munmap (void *addr){
 	do_munmap(addr);

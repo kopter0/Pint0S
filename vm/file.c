@@ -138,9 +138,13 @@ do_munmap (void *addr) {
 	void *init_addr = addr;
 	off_t length = file_length(file);
 	while (init_addr < addr + length){
-		off_t bytes_written = PGSIZE;
 		struct page *pg = spt_find_page(&thread_current() -> spt, init_addr);
-		if (pg && pml4_is_dirty(thread_current() -> pml4, init_addr)){
+		off_t bytes_written = PGSIZE;
+		if (!pg){
+			debug_msg("pg is NULL");
+			break;
+		}
+		if (pml4_is_dirty(thread_current() -> pml4, init_addr)){
 			if (page_get_type(pg) != VM_FILE){
 				PANIC("not VM_FILE");
 			}
@@ -154,6 +158,7 @@ do_munmap (void *addr) {
 		init_addr += bytes_written;
 
 		spt_remove_page (&thread_current() -> spt, pg);
+		init_addr += bytes_written;
 	}
 	file_close(file);
 	lock_release(&file_lock);
