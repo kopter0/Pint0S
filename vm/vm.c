@@ -354,10 +354,10 @@ void page_table_destructor(struct hash_elem *e, void *aux UNUSED){
 	struct spt_entry *entry = hash_entry(e, struct spt_entry, elem);
 	// entry -> pg -> frame -> page = NULL;
 	// entry -> pg -> frame = NULL;
-	free(entry -> pg -> frame);
 	// free type page
 	// destroy(entry -> pg);
 	// free(entry -> pg);
+	// free(entry -> pg -> frame);
 	vm_dealloc_page(entry -> pg);
 	entry -> paddr = NULL;
 	free(entry);

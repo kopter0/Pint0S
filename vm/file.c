@@ -48,8 +48,21 @@ file_backed_swap_out (struct page *page) {
 static void
 file_backed_destroy (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
-	file_page ->file = NULL;
-	page->spt_entry=NULL;
+	// debug_msg("file_backed_destroy\n");
+	if (pml4_is_dirty(thread_current() -> pml4, page -> va)){
+		// printf("dirty page\n");
+		file_seek(file_page->file, file_page -> offset);
+		off_t size = (file_page -> length < PGSIZE) ? file_page ->length : PGSIZE; 
+		// printf("0x%x\n", page -> frame -> kva);
+		off_t bytes_written = file_write (file_page->file, page -> frame -> kva, size);
+		if (bytes_written < file_page -> length){
+			debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, file_page -> length);
+		}
+	}
+
+	free(page -> frame);
+		
+	
 	
 }
 
@@ -130,9 +143,10 @@ do_munmap (void *addr) {
 	if (page_get_type(page) != VM_FILE){
 		PANIC("not VM_FILE");
 	}
+	bool should_acquire = lock_held_by_current_thread(&file_lock);
 	
-	lock_acquire(&file_lock);
-	
+	if (!should_acquire)
+		lock_acquire(&file_lock);
 	struct file *file = page -> file.file;
 	// file_reopen(file);
 	void *init_addr = addr;
@@ -161,6 +175,7 @@ do_munmap (void *addr) {
 		init_addr += bytes_written;
 	}
 	file_close(file);
-	lock_release(&file_lock);
+	if (!should_acquire)
+		lock_release(&file_lock);
 
 }

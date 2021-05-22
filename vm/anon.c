@@ -123,4 +123,6 @@ anon_destroy (struct page *page) {
 	struct hash_elem *e;
 	e = hash_delete(index_table, &ite.elem);
 	lock_release(&swap_lock);
+
+	free (page -> frame);
 }
