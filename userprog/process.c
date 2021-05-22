@@ -711,7 +711,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	debug_msg("Before write\n");
 	int actual_read = file_read(lsi -> file, page -> frame -> kva, (off_t)lsi -> read_bytes);
 	if (actual_read != (int) lsi -> read_bytes){
-		PANIC("Couldnt write");
+		PANIC("Couldnt write %d, %d", actual_read, lsi -> read_bytes);
 		return false;
 	}
 	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
