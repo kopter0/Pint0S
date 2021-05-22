@@ -147,29 +147,52 @@ spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 
 /* Get the struct frame, that will be evicted. */
 
-void print_usage_data (struct hash_elem *e, void * aux UNUSED){
-	struct spt_entry *se = hash_entry(e, struct spt_entry, elem);
-	// printf("0x%x: %d\n", se -> vaddr, se -> last_access);
-}
+
+// bool is_swapped_out (struct spt_entry* se){
+// 	switch (VM_TYPE(se -> vm_type)) {
+// 		case VM_ANON:
+// 			return se -> pg -> anon.swapped_out;
+// 		default:
+// 			return true;
+// 	}
+// }
 
 static struct frame *
 vm_get_victim (void) {
 	struct frame *victim = NULL;
-	 /* TODO: The policy for eviction is up to you. */
-	printf("serching vicims\n");
-	hash_apply(thread_current() -> spt.page_table, print_usage_data);
+	
+	struct thread* t = thread_current();
+	struct hash_iterator i;
 
-	return victim;
+	hash_first (&i, t -> spt.page_table);
+	struct spt_entry *to_evict;
+	uint64_t biggest_val = 0;
+	while (hash_next (&i))
+	{
+		struct spt_entry *ste = hash_entry (hash_cur (&i), struct spt_entry, elem);
+		if (!is_swapped_out(ste) && ste -> last_access > biggest_val){
+			biggest_val = ste->last_access;
+			to_evict = ste;
+			if (biggest_val > 50)
+				break;
+		}
+	}
+
+	// printf("evicting 0x%x, la: %d, type: %d\n", to_evict -> vaddr, to_evict -> last_access, to_evict -> vm_type);
+	to_evict->pg->anon.swapped_out = true;
+	return to_evict->pg->frame;
 }
 
 /* Evict one page and return the corresponding frame.
  * Return NULL on error.*/
 static struct frame *
 vm_evict_frame (void) {
-	struct frame *victim UNUSED = vm_get_victim ();
+	struct frame *victim = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
-	PANIC("TODO: EVICT IN vm_get_frame");
-	return NULL;
+	swap_out(victim ->page);
+	pml4_clear_page(thread_current() -> pml4, victim -> page -> va);
+	victim -> page = NULL;
+	return victim;
 }
 
 /* palloc() and get frame. If there is no available page, evict the page
@@ -183,13 +206,11 @@ vm_get_frame (void) {
 	frame -> kva = palloc_get_page(PAL_USER);
 
 	if (frame -> kva == NULL) {
-		frame -> kva = vm_evict_frame();
+		frame = vm_evict_frame();
 	}
-	// if (!vm_alloc_page(VM_ANON, frame -> page, true)) {
-	// 	PANIC("FRAME NOT allocated");
-	// }
-	
+
 	ASSERT (frame != NULL);
+	ASSERT (frame -> kva != NULL);
 	ASSERT (frame->page == NULL);
 	return frame;
 }
@@ -305,6 +326,7 @@ supplemental_page_table_init (struct supplemental_page_table *spt UNUSED) {
 	bool result = hash_init(spt -> page_table, &page_hash, &page_less, NULL);
 	lock_init(&spt -> lock);
 	spt -> thread = thread_current();
+	spt -> inited = true;
 }
 
 bool copy_init (struct page *pg, void *aux){
@@ -352,14 +374,7 @@ supplemental_page_table_copy (struct supplemental_page_table *dst UNUSED,
 void page_table_destructor(struct hash_elem *e, void *aux UNUSED){
 	debug_msg("Debug: Page TAble destruction\n");
 	struct spt_entry *entry = hash_entry(e, struct spt_entry, elem);
-	// entry -> pg -> frame -> page = NULL;
-	// entry -> pg -> frame = NULL;
-	// free type page
-	// destroy(entry -> pg);
-	// free(entry -> pg);
-	// free(entry -> pg -> frame);
 	vm_dealloc_page(entry -> pg);
-	entry -> paddr = NULL;
 	free(entry);
 }
 
