@@ -121,6 +121,8 @@ spt_insert_page (struct supplemental_page_table *spt UNUSED,
 	new_entry -> pg = page;
 	new_entry -> vaddr = page -> va;
 	new_entry -> is_writable = page -> writable;
+	new_entry -> last_access = 0;
+	new_entry -> t = thread_current();
 	page -> spt_entry = new_entry;
 	lock_acquire(&spt->lock);
 	hash_insert(spt -> page_table, &new_entry -> elem);
@@ -144,10 +146,18 @@ spt_remove_page (struct supplemental_page_table *spt, struct page *page) {
 }
 
 /* Get the struct frame, that will be evicted. */
+
+void print_usage_data (struct hash_elem *e, void * aux UNUSED){
+	struct spt_entry *se = hash_entry(e, struct spt_entry, elem);
+	// printf("0x%x: %d\n", se -> vaddr, se -> last_access);
+}
+
 static struct frame *
 vm_get_victim (void) {
 	struct frame *victim = NULL;
 	 /* TODO: The policy for eviction is up to you. */
+	printf("serching vicims\n");
+	hash_apply(thread_current() -> spt.page_table, print_usage_data);
 
 	return victim;
 }
@@ -158,7 +168,7 @@ static struct frame *
 vm_evict_frame (void) {
 	struct frame *victim UNUSED = vm_get_victim ();
 	/* TODO: swap out the victim and return the evicted frame. */
-
+	PANIC("TODO: EVICT IN vm_get_frame");
 	return NULL;
 }
 
@@ -173,7 +183,7 @@ vm_get_frame (void) {
 	frame -> kva = palloc_get_page(PAL_USER);
 
 	if (frame -> kva == NULL) {
-		PANIC("TODO: EVICT IN vm_get_frame");
+		frame -> kva = vm_evict_frame();
 	}
 	// if (!vm_alloc_page(VM_ANON, frame -> page, true)) {
 	// 	PANIC("FRAME NOT allocated");

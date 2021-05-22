@@ -30,7 +30,6 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 int load_avg;
-static struct list all_threads;
 /* Idle thread. */
 static struct thread *idle_thread;
 

@@ -8,6 +8,8 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/malloc.h"
+#include "threads/mmu.h"
+#include "threads/thread.h"
 
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -157,6 +159,29 @@ timer_print_stats (void) {
    2. Recent_cpu is incremented on every clock tick for RUNNING THREAD
    3. Once per second recent_cpu is recalculated for EVERY THREAD
    4. Once per second update load_avg */
+void do_update(struct hash_elem *e, void *aux UNUSED){
+	struct spt_entry *se = hash_entry(e, struct spt_entry, elem);
+	if (pml4_is_accessed(se -> t -> pml4, se -> vaddr)){
+		se -> last_access = 0;
+		pml4_set_accessed(se -> t -> pml4, se -> vaddr, false);
+		return;
+	}
+	se ->last_access++;
+}
+
+void update_access_time(){
+	struct list_elem *e;
+	// printf("0x%x, 0x%x, 0x%x\n", &all_threads, list_head(&all_threads), list_end(&all_threads));
+	if (list_begin(&all_threads) == NULL) {
+		return;
+	}
+	// printf("BEGIN UPDATE\n");
+	for (e = list_begin(&all_threads); e != list_end(&all_threads); e = list_next(e)){
+		struct thread *t = list_entry(e, struct thread, all_t);
+		hash_apply(&t->spt.page_table, do_update);
+	}
+}
+
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
@@ -167,6 +192,9 @@ timer_interrupt (struct intr_frame *args UNUSED) {
 			list_entry(list_pop_front(&sleeping_list), struct sti, elem) -> thread
 		);
 	}
+
+	if (timer_ticks() % 4 == 0)
+		update_access_time();
 
 	thread_tick ();
 	if (thread_mlfqs){

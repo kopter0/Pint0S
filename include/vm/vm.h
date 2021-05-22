@@ -95,6 +95,8 @@ struct spt_entry {
 	void *paddr;
 	bool is_writable;
 	bool is_stack;
+	uint64_t last_access;
+	struct thread *t;
 };
 
 struct supplemental_page_table {

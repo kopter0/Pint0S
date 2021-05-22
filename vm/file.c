@@ -60,13 +60,22 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 	lock_acquire(&file_lock);
 	debug_msg("size %d\n", file_length(lsi->file));
 	ASSERT(lsi -> file != NULL);
-	lsi->file =  file_reopen(lsi -> file);
-	file_seek(lsi -> file, lsi -> ofs);	 
+	// lsi->file =  file_reopen(lsi -> file);
+	file_seek(lsi -> file, lsi -> ofs);
+	if (!page -> writable){
+		pml4_clear_page(thread_current() -> pml4, page -> va);
+		pml4_set_page(thread_current() -> pml4, page -> va, page -> frame -> kva, true);
+	}	 
 	int actual_read = file_read(lsi -> file, page -> frame -> kva, (off_t)lsi -> read_bytes);
 	if (actual_read != (int) lsi -> read_bytes){
 		PANIC("Couldnt write %d, %d\n",actual_read, lsi -> read_bytes);
 		return false;
 	}
+	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
+	if (!page -> writable){
+		pml4_clear_page(thread_current() -> pml4, page -> va);
+		pml4_set_page(thread_current() -> pml4, page -> va, page -> frame -> kva, page->writable);
+	}	 
 	file_seek(lsi -> file, lsi->ofs);
 	// file_close(lsi -> file);
 	lock_release(&file_lock);
@@ -74,7 +83,6 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 	page -> file.length = lsi -> read_bytes;
 	page -> file.offset = lsi -> ofs;
 	 
-	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
 
 	// return vm_claim_page(page->va);
 	return true;
@@ -126,7 +134,7 @@ do_munmap (void *addr) {
 	lock_acquire(&file_lock);
 	
 	struct file *file = page -> file.file;
-	file_reopen(file);
+	// file_reopen(file);
 	void *init_addr = addr;
 	off_t length = file_length(file);
 	while (init_addr < addr + length){
@@ -138,15 +146,13 @@ do_munmap (void *addr) {
 			}
 			file_seek(file, pg -> file.offset);
 			off_t size = (pg -> file.length < PGSIZE) ? pg -> file.length : PGSIZE; 
-			pml4_clear_page(thread_current() -> pml4, init_addr);
-			pml4_set_page(thread_current() -> pml4, init_addr, pg -> frame -> kva, true);
 			bytes_written = file_write (file, pg -> frame -> kva, size);
 			if (bytes_written < pg -> file.length){
 				debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, pg -> file.length);
 			}
-			pml4_clear_page(thread_current() -> pml4, init_addr);
-			pml4_set_page(thread_current() -> pml4, init_addr, pg -> frame -> kva, pg -> writable);
 		}
+		init_addr += bytes_written;
+
 		spt_remove_page (&thread_current() -> spt, pg);
 	}
 	file_close(file);
