@@ -10,6 +10,7 @@ struct file_page {
 	struct file *file;
 	int length;
 	off_t offset;
+	bool is_swapped;
 };
 
 void vm_file_init (void);

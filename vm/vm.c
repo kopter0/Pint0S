@@ -13,7 +13,7 @@
 #define STACK_LIMIT (1024 * 1024 * 8) 
 #define USER_STACK_LIMIT 0x47380000
 
-// #define DEBUG
+#define DEBUG
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void
@@ -241,11 +241,15 @@ vm_try_handle_fault (struct intr_frame *f UNUSED, void *addr UNUSED,
 			}
 
 
-			debug_msg("HANDLING FAULT: FADDR: 0x%x, RSP: 0x%x, lim: 0x%x, 0x%x\n", addr, rsp);
-			if ((addr != NULL) && (addr <= rsp ) && (addr < KERN_BASE) && (addr > USER_STACK_LIMIT)){
-				vm_stack_growth(addr);
-				debug_msg("DEBUG stack growth %d\n",rsp - (uintptr_t)pg_round_down(addr));
+			debug_msg("HANDLING FAULT: FADDR: %p, RSP: 0x%x, lim: 0x%x, 0x%x\n", addr, rsp);
+		    if ((addr != NULL) && (addr <= rsp ) && (addr < KERN_BASE) && (addr > USER_STACK_LIMIT)){
+			// if (KERN_BASE - STACK_LIMIT < addr && addr <= KERN_BASE) {
+      		// 	if (addr == rsp - 4 || addr == rsp - 32 || addr >= rsp) {
+					vm_stack_growth(addr);
+					debug_msg("DEBUG stack growth %d\n",rsp - (uintptr_t) pg_round_down(addr));
+				
 			}else {
+				debug_msg("DEBUG: not a stack\n");
 				return false;
 				// PANIC("LIMIT exceeded");
 			}
@@ -283,7 +287,7 @@ vm_claim_page (void *va UNUSED) {
 static bool
 vm_do_claim_page (struct page *page) {
 	struct frame *frame = vm_get_frame ();	
-
+	
 	/* Set links */
 	frame->page = page;
 	page->frame = frame;
@@ -294,7 +298,7 @@ vm_do_claim_page (struct page *page) {
 	ASSERT (succ);
 
 	page -> spt_entry -> vm_type = page_get_type(page);
-
+	debug_msg("DEBUG: do_claim_page %p, %p %d\n", page -> va, frame -> kva, page -> spt_entry -> vm_type);
 	return swap_in (page, frame->kva);
 }
 

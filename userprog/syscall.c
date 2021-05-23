@@ -173,7 +173,7 @@ fork (const char *thread_name, struct intr_frame *if_){
 	tid_t tid = process_fork(thread_name, if_);
 	if (tid == TID_ERROR){
 		return -1;
-	}
+	} 
 	// sema_down(&get_thread_by_tid(tid) -> child_info.child_load_sema);
 	struct historical_record *hr = find_in_history(tid);
 	hr -> parent_tid = thread_current() -> tid;	
@@ -190,7 +190,8 @@ exec (const char *file UNUSED) {
 		debug_msg("EXEC: exit 0x%x\n", f);
 		exit(-1);
 	}
-	return process_exec(f);
+	// return process_exec(f);
+	return process_exec(file);
 }
 
 int wait (pid_t pid) {
@@ -376,6 +377,16 @@ void *mmap (void *addr, size_t length, int writable, int fd, off_t offset){
 
 	if (fd < 2 || get_file_by_fd(fd) == NULL){
 		debug_msg("MMAP fd 1 or 0\n");
+		return NULL;
+	}
+	debug_msg("MMAP kernel vaddr 0x%x\n", addr);
+	if (is_kernel_vaddr(addr) || is_kernel_vaddr(addr - length)){
+		debug_msg("MMAP kernel vaddr 0x%x\n", addr);
+		return NULL;
+	}
+
+	if (spt_find_page(&thread_current() -> spt, addr)){
+		debug_msg("MMAP addr\n");
 		return NULL;
 	}
 

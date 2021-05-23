@@ -30,18 +30,40 @@ file_backed_initializer (struct page *page, enum vm_type type, void *kva) {
 	page->operations = &file_ops;
 
 	struct file_page *file_page = &page->file;
+	file_page -> is_swapped = false;
 }
 
 /* Swap in the page by read contents from the file. */
 static bool
 file_backed_swap_in (struct page *page, void *kva) {
+	debug_msg("DEBUG: file swap in %p\n", kva);
 	struct file_page *file_page UNUSED = &page->file;
+	lock_acquire(&file_lock);
+	file_page -> file = file_reopen(file_page -> file);
+	file_seek(file_page -> file, file_page -> offset);
+	off_t read = file_read(file_page -> file, kva, file_page -> length);
+	if (read != file_page -> length)
+		PANIC("file_backed_swap_in read: %d, %d\n", read, file_page -> length);
+	file_page -> is_swapped = false;
+	lock_release(&file_lock);
+	return true;
 }
 
 /* Swap out the page by writeback contents to the file. */
 static bool
 file_backed_swap_out (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
+	if (pml4_is_dirty(thread_current() -> pml4, page -> va)){
+		file_seek(file_page->file, file_page -> offset);
+		off_t size = (file_page -> length < PGSIZE) ? file_page ->length : PGSIZE; 
+		off_t bytes_written = file_write (file_page->file, page -> frame -> kva, size);
+		if (bytes_written < file_page -> length){
+			debug_msg("DEBUG swap_out: bytes_written: %d, page file len: %d \n", bytes_written, file_page -> length);
+		}
+		pml4_set_dirty (thread_current() -> pml4, page -> va, false);
+	}
+	file_page -> is_swapped = true;
+
 }
 
 /* Destory the file backed page. PAGE will be freed by the caller. */
@@ -49,21 +71,21 @@ static void
 file_backed_destroy (struct page *page) {
 	struct file_page *file_page UNUSED = &page->file;
 	// debug_msg("file_backed_destroy\n");
-	if (pml4_is_dirty(thread_current() -> pml4, page -> va)){
-		// printf("dirty page\n");
-		file_seek(file_page->file, file_page -> offset);
-		off_t size = (file_page -> length < PGSIZE) ? file_page ->length : PGSIZE; 
-		// printf("0x%x\n", page -> frame -> kva);
-		off_t bytes_written = file_write (file_page->file, page -> frame -> kva, size);
-		if (bytes_written < file_page -> length){
-			debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, file_page -> length);
+	if (!file_page -> is_swapped){
+		if (pml4_is_dirty(thread_current() -> pml4, page -> va)){
+			// printf("dirty page\n");
+			file_seek(file_page->file, file_page -> offset);
+			off_t size = (file_page -> length < PGSIZE) ? file_page ->length : PGSIZE; 
+			// printf("0x%x\n", page -> frame -> kva);
+			off_t bytes_written = file_write (file_page->file, page -> frame -> kva, size);
+			if (bytes_written < file_page -> length){
+				debug_msg("DEBUG: bytes_written: %d, page file len: %d \n", bytes_written, file_page -> length);
+			}
 		}
+		if (page -> frame != NULL)
+			free(page -> frame);
 	}
 
-	free(page -> frame);
-		
-	
-	
 }
 
 /* Do the mmap */
@@ -84,7 +106,9 @@ static bool lazy_do_mmap(struct page* page, void* aux){
 		PANIC("Couldnt write %d, %d\n",actual_read, lsi -> read_bytes);
 		return false;
 	}
+	debug_msg("DEBUG: lazy_do_mmap %p\n", page -> frame -> kva);
 	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
+	
 	if (!page -> writable){
 		pml4_clear_page(thread_current() -> pml4, page -> va);
 		pml4_set_page(thread_current() -> pml4, page -> va, page -> frame -> kva, page->writable);
