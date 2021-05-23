@@ -130,13 +130,15 @@ anon_swap_out (struct page *page) {
 static void
 anon_destroy (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
-	lock_acquire(&swap_lock);
-	struct idx_t_entry ite;
-	ite.idx = page->anon.swap_idx;
-	struct hash_elem *e;
-	e = hash_delete(index_table, &ite.elem);
-	lock_release(&swap_lock);
-	if (page -> frame){
-		free (page -> frame);
+	if (anon_page -> swapped_out){
+		lock_acquire(&swap_lock);
+		struct idx_t_entry ite;
+		ite.idx = page->anon.swap_idx;
+		struct hash_elem *e;
+		e = hash_delete(index_table, &ite.elem);
+		lock_release(&swap_lock);
 	}
+	// else{
+	// 	free (page -> frame);
+	// }
 }

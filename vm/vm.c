@@ -161,6 +161,7 @@ static struct frame *
 vm_get_victim (void) {
 	struct frame *victim = NULL;
 	
+
 	struct thread* t = thread_current();
 	struct hash_iterator i;
 
