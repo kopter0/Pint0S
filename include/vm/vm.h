@@ -103,6 +103,7 @@ struct supplemental_page_table {
 	struct hash *page_table;
 	struct lock lock;
 	struct thread *thread;
+	bool inited;
 };
 
 struct load_segment_info {

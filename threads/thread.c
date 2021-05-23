@@ -146,6 +146,46 @@ thread_start (void) {
 
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
+
+bool is_swapped_out (struct spt_entry* se){
+	switch (VM_TYPE(se -> vm_type)) {
+		case VM_ANON:
+			return se -> pg -> anon.swapped_out;
+		default:
+			return true;
+	}
+}
+
+
+void do_update(struct hash_elem *e, void *aux UNUSED){
+	struct spt_entry *se = hash_entry(e, struct spt_entry, elem);
+	if (is_swapped_out(se)){
+		se -> last_access = 0;
+		return;
+	}
+	if (pml4_is_accessed(se -> t -> pml4, se -> vaddr)){
+		se -> last_access = 0;
+		pml4_set_accessed(se -> t -> pml4, se -> vaddr, false);
+		return;
+	}
+	se ->last_access++;
+}
+
+void update_access_time(){
+	struct list_elem *e;
+	if (list_begin(&all_threads) == NULL) {
+		return;
+	}
+	for (e = list_begin(&all_threads); e != list_end(&all_threads); e = list_next(e)){
+		struct thread *t = list_entry(e, struct thread, all_t);
+		if (t -> tid > 2 && !lock_held_by_current_thread(&t->spt.lock)){
+			hash_apply(t->spt.page_table, do_update);
+		}
+	}
+}
+
+
+
 void
 thread_tick (void) {
 	struct thread *t = thread_current ();
@@ -154,8 +194,11 @@ thread_tick (void) {
 	if (t == idle_thread)
 		idle_ticks++;
 #ifdef USERPROG
-	else if (t->pml4 != NULL)
+	else if (t->pml4 != NULL){
 		user_ticks++;
+		if (thread_ticks % 4 == 0)
+			update_access_time();
+	}
 #endif
 	else
 		kernel_ticks++;	

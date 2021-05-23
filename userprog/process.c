@@ -704,17 +704,21 @@ lazy_load_segment (struct page *page, void *aux) {
 	debug_msg("LAZY: %s\n", thread_current() -> name);
 	file_seek(lsi -> file, lsi -> ofs);
 	debug_msg("DEBUG: load_addr 0x%x\n", lsi->upage);
-	pml4_clear_page(thread_current() ->pml4 ,lsi -> upage);
-	pml4_set_page(thread_current() -> pml4, lsi -> upage, page -> frame -> kva, true);
+	if (!page -> writable){
+		pml4_clear_page(thread_current() ->pml4 ,lsi -> upage);
+		pml4_set_page(thread_current() -> pml4, lsi -> upage, page -> frame -> kva, true);
+	}
 	int actual_read = file_read(lsi -> file, page -> frame -> kva, (off_t)lsi -> read_bytes);
 	if (actual_read != (int) lsi -> read_bytes){
 		PANIC("Couldnt write, required: %d, actual %d", lsi->read_bytes, actual_read);
 		return false;
 	}
 	memset (page -> frame -> kva + lsi -> read_bytes, 0, lsi -> zero_bytes);
-	pml4_clear_page(thread_current() ->pml4 ,lsi -> upage);
-	pml4_set_page(thread_current() -> pml4, lsi -> upage, page -> frame -> kva, page -> writable);
-	// file_close(lsi->file);
+	if (!page -> writable){
+		pml4_clear_page(thread_current() ->pml4 ,lsi -> upage);
+		pml4_set_page(thread_current() -> pml4, lsi -> upage, page -> frame -> kva, page -> writable);
+	}
+	file_close(lsi->file);
 	if (should_acquire)
 		lock_release(&file_lock);
 
@@ -760,7 +764,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 		lsi -> read_bytes = page_read_bytes;
 		lsi -> zero_bytes = page_zero_bytes;
 		lsi -> is_writable = writable;
-
 		if (!vm_alloc_page_with_initializer (VM_ANON, upage,
 					writable, lazy_load_segment, aux))
 			return false;

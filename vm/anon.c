@@ -13,6 +13,7 @@ struct idx_t_entry {
 	uint32_t idx;
 	struct hash_elem elem;
 };
+uint32_t last_idx;
 
 unsigned idx_hash (const struct hash_elem *p, void *aux UNUSED) {
 	const struct idx_t_entry *ite = hash_entry(p, struct idx_t_entry, elem);
@@ -46,6 +47,7 @@ vm_anon_init (void) {
 	lock_init(&swap_lock);
 	index_table = malloc(sizeof(struct hash));
 	hash_init(index_table, idx_hash, idx_less, NULL);
+	last_idx = 0;
 	debug_msg("SWAP DISK %d\n", disk_size(swap_disk));
 }
 
@@ -66,10 +68,12 @@ anon_swap_in (struct page *page, void *kva) {
 	struct anon_page *anon_page = &page->anon;
 	ASSERT(anon_page->swapped_out);
 
+	// printf("Swapping in 0x%x\n", page->va);
+
 	uint32_t idx = anon_page->swap_idx;
 
 	lock_acquire(&swap_lock);
-	for (uint32_t i = 0; i < 7; i++) {
+	for (uint32_t i = 0; i < 8; i++) {
 		disk_read(swap_disk, idx * 8 + i, kva + 512 * i);
 	}
 	struct idx_t_entry ite;
@@ -82,35 +86,44 @@ anon_swap_in (struct page *page, void *kva) {
 	anon_page->swap_idx = 0;
 	anon_page->swapped_out = false;	
 
+	lock_release(&swap_lock);
 
+	return true;
 }
 
 /* Swap out the page by writing contents to the swap disk. */
 static bool
 anon_swap_out (struct page *page) {
 	struct anon_page *anon_page = &page->anon;
-  uint32_t available_idx = 0;
+	// printf("swap out 0x%x\n", page-> va);
+  uint32_t available_idx = (last_idx + 1) % total_idxs;
 	lock_acquire(&swap_lock);
 	struct idx_t_entry *ite = malloc(sizeof(struct idx_t_entry));
-	while (available_idx < total_idxs) {
+	do  {
 		ite->idx = available_idx;
 		if (!hash_find(index_table, &ite->elem)){
 			hash_insert(index_table, &ite->elem);
 			break;
 		}
-	}
-	if (available_idx == total_idxs){
+		available_idx = (available_idx + 1) % total_idxs;
+	} while (available_idx != last_idx);
+
+	if (available_idx == last_idx){
 		PANIC("SWAP OUT: NO MORE SLOTS");
 	}
 
-	for (uint32_t i = 0; i < 7; i++) {
+	for (uint32_t i = 0; i < 8; i++) 
 		disk_write(swap_disk, available_idx * 8 + i, page -> frame -> kva + 512 * i);
-	}
 
 	anon_page->swap_idx = available_idx;
 	anon_page->swapped_out = true;	
 
+	last_idx = available_idx;
+
+	page -> frame = NULL;
 	lock_release(&swap_lock);
+	// printf("SWAPPED out\n");
+	return true;
 }
 
 /* Destroy the anonymous page. PAGE will be freed by the caller. */
@@ -123,6 +136,7 @@ anon_destroy (struct page *page) {
 	struct hash_elem *e;
 	e = hash_delete(index_table, &ite.elem);
 	lock_release(&swap_lock);
-
-	free (page -> frame);
+	if (page -> frame){
+		free (page -> frame);
+	}
 }

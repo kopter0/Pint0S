@@ -147,7 +147,8 @@ page_fault (struct intr_frame *f) {
 	/* For project 3 and later. */
 	if (vm_try_handle_fault (f, fault_addr, user, write, not_present))
 		return;
-	debug_msg("DEBUG: fault_addr 0x%x\n", fault_addr);
+
+	//vm_try_handle_fault (f, fault_addr, user, write, not_present);
 #endif
 
 	/* Count page faults. */
