@@ -702,6 +702,7 @@ lazy_load_segment (struct page *page, void *aux) {
 	if (should_acquire)
 		lock_acquire(&file_lock);
 	debug_msg("LAZY: %s\n", thread_current() -> name);
+	lsi -> file = file_reopen(lsi -> file);
 	file_seek(lsi -> file, lsi -> ofs);
 	debug_msg("DEBUG: load_addr 0x%x\n", lsi->upage);
 	if (!page -> writable){
@@ -718,7 +719,7 @@ lazy_load_segment (struct page *page, void *aux) {
 		pml4_clear_page(thread_current() ->pml4 ,lsi -> upage);
 		pml4_set_page(thread_current() -> pml4, lsi -> upage, page -> frame -> kva, page -> writable);
 	}
-	file_close(lsi->file);
+	// file_close(lsi->file);
 	if (should_acquire)
 		lock_release(&file_lock);
 

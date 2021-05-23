@@ -34,6 +34,7 @@ test_main (void)
 		    fail ("data is inconsistent");
         }
     }
+    
     exit(0);
 }
 

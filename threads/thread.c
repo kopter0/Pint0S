@@ -176,9 +176,10 @@ void update_access_time(){
 	if (list_begin(&all_threads) == NULL) {
 		return;
 	}
+
 	for (e = list_begin(&all_threads); e != list_end(&all_threads); e = list_next(e)){
 		struct thread *t = list_entry(e, struct thread, all_t);
-		if (t -> tid > 2 && !lock_held_by_current_thread(&t->spt.lock)){
+		if (t -> tid > 2 && t->spt.inited && t -> spt.lock.holder == NULL){
 			hash_apply(t->spt.page_table, do_update);
 		}
 	}
