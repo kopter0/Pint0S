@@ -137,7 +137,7 @@ do_mmap (void *addr, size_t length, int writable,
 
 	while (read_bytes > 0 && remained_len > 0){
 		size_t should_read = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-		size_t page_read_bytes = remained_len < read_bytes ? remained_len : read_bytes;
+		size_t page_read_bytes = remained_len <should_read ? remained_len : should_read;
 		size_t page_zero_bytes = PGSIZE - page_read_bytes;
 		void *aux = calloc((size_t) 1, sizeof(struct load_segment_info));
 		struct load_segment_info *lsi = (struct load_segment_info*) aux;
