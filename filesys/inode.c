@@ -46,14 +46,21 @@ static disk_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) {
 	#ifdef EFILESYS 
 	cluster_t curr = sector_to_cluster(inode -> sector);
+	off_t total_length = inode->data.length;
 	while (pos > DISK_SECTOR_SIZE - 1) {
 		curr = fat_get(curr);
 		if (curr == EOChain)
 			return 0;
 		pos -= DISK_SECTOR_SIZE;
+		total_length -= DISK_SECTOR_SIZE;
 	}
 
-	return cluster_to_sector(curr);
+	if (DISK_SECTOR_SIZE - total_length > 0) {
+		return cluster_to_sector(curr);
+	}
+
+	else return 0;
+
 	#else
 	ASSERT (inode != NULL);
 	if (pos < inode->data.length)
@@ -166,9 +173,6 @@ inode_open (disk_sector_t sector) {
 	inode->deny_write_cnt = 0;
 	inode->removed = false;
 	disk_read (filesys_disk, inode->sector, &inode->data);
-	#ifdef EFILESYS
-	inode->data.length = DISK_SECTOR_SIZE;
-	#endif
 	return inode;
 }
 
@@ -294,7 +298,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 			}
 			cluster_t new_cluster = fat_create_chain (cluster);
 			sector_idx = cluster_to_sector(new_cluster);
-			inode->data.length += DISK_SECTOR_SIZE;
+			inode->data.length += size;
 		}
 		#endif
 
