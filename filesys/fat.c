@@ -157,7 +157,7 @@ void
 fat_fs_init (void) {
 	/* TODO: Your code goes here. */
 	fat_fs -> fat_length = fat_fs -> bs.fat_sectors * DISK_SECTOR_SIZE / sizeof(cluster_t);
-	fat_fs -> last_clst = fat_fs -> bs.fat_sectors;
+	fat_fs -> last_clst = fat_fs -> fat_length - 1;
 	fat_fs -> data_start = fat_fs -> bs.fat_sectors + 1;
 	lock_init(&fat_fs->write_lock);
 }
@@ -239,5 +239,6 @@ cluster_t
 sector_to_cluster (disk_sector_t disk_sector) {
 	cluster_t cluster = (cluster_t) (disk_sector - fat_fs -> data_start + 1);
 	ASSERT(cluster > 0);
+	ASSERT(cluster <= fat_fs -> fat_length);
 	return cluster;
 }

@@ -278,6 +278,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 			}
 			cluster_t new_cluster = fat_create_chain (cluster);
 			sector_idx = cluster_to_sector(new_cluster);
+			inode -> data.length += DISK_SECTOR_SIZE;
+			
 		}
 
 		int sector_ofs = offset % DISK_SECTOR_SIZE;
