@@ -286,6 +286,15 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 	while (size > 0) {
 		/* Sector to write, starting byte offset within sector. */
 		disk_sector_t sector_idx = byte_to_sector (inode, offset);
+		if (sector_idx == -1){
+			cluster_t cluster = sector_to_cluster(inode -> sector);
+			while (fat_get(cluster) != EOChain){
+				cluster = fat_get (cluster);
+			}
+			cluster_t new_cluster = fat_create_chain (cluster);
+			sector_idx = cluster_to_sector(new_cluster);
+		}
+
 		int sector_ofs = offset % DISK_SECTOR_SIZE;
 
 		/* Bytes left in inode, bytes left in sector, lesser of the two. */
