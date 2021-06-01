@@ -233,3 +233,11 @@ cluster_to_sector (cluster_t clst) {
 	ASSERT(clst <= fat_fs -> fat_length);
 	return (disk_sector_t) (clst + fat_fs -> data_start - 1);
 }
+
+
+cluster_t 
+sector_to_cluster (disk_sector_t disk_sector) {
+	cluster_t cluster = (cluster_t) (disk_sector - fat_fs -> data_start + 1);
+	ASSERT(cluster > 0);
+	return cluster;
+}
