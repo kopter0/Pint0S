@@ -8,6 +8,8 @@
 #include "filesys/directory.h"
 #include "devices/disk.h"
 
+#include <filesys/fat.h>
+
 /* The disk that contains the file system. */
 struct disk *filesys_disk;
 
@@ -61,12 +63,38 @@ bool
 filesys_create (const char *name, off_t initial_size) {
 	disk_sector_t inode_sector = 0;
 	struct dir *dir = dir_open_root ();
-	bool success = (dir != NULL
+	bool success = false;
+	#ifdef EFILESYS
+	if (dir == NULL){
+		goto done;
+	}
+	cluster_t new_cluster = fat_create_chain(0);
+	if (new_cluster == 0){
+		goto done;
+	}
+	inode_sector = cluster_to_sector(new_cluster);
+
+ 	if (!inode_create (inode_sector, initial_size)){
+		fat_remove_chain(new_cluster, 0);
+		goto done;
+	}
+
+	if (!dir_add(dir, name, inode_sector)){
+		fat_remove_chain(new_cluster, 0); 
+		goto done;
+	}
+	success = true;
+
+	#else
+	success = (dir != NULL
 			&& free_map_allocate (1, &inode_sector)
 			&& inode_create (inode_sector, initial_size)
 			&& dir_add (dir, name, inode_sector));
 	if (!success && inode_sector != 0)
 		free_map_release (inode_sector, 1);
+	
+	#endif
+	done:
 	dir_close (dir);
 
 	return success;

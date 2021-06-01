@@ -13,7 +13,7 @@
 #define STACK_LIMIT (1024 * 1024 * 8) 
 #define USER_STACK_LIMIT 0x47380000
 
-//#define DEBUG
+
 /* Initializes the virtual memory subsystem by invoking each subsystem's
  * intialize codes. */
 void

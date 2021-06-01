@@ -6,6 +6,7 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 
+#include "filesys/fat.h"
 /* A directory. */
 struct dir {
 	struct inode *inode;                /* Backing store. */
@@ -46,7 +47,11 @@ dir_open (struct inode *inode) {
  * Return true if successful, false on failure. */
 struct dir *
 dir_open_root (void) {
+	#ifdef EFILESYS
+	return dir_open (inode_open( cluster_to_sector(ROOT_DIR_CLUSTER)));
+	#else
 	return dir_open (inode_open (ROOT_DIR_SECTOR));
+	#endif
 }
 
 /* Opens and returns a new directory for the same inode as DIR.

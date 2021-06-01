@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "kernel/bitmap.h"
+
 /* Should be less than DISK_SECTOR_SIZE */
 struct fat_boot {
 	unsigned int magic;
@@ -26,6 +28,7 @@ struct fat_fs {
 	struct lock write_lock;
 };
 
+// struct bitmap free_clusters;
 static struct fat_fs *fat_fs;
 
 void fat_boot_create (void);
@@ -153,11 +156,23 @@ fat_boot_create (void) {
 void
 fat_fs_init (void) {
 	/* TODO: Your code goes here. */
+	fat_fs -> fat_length = fat_fs -> bs.fat_sectors * DISK_SECTOR_SIZE / sizeof(cluster_t);
+	fat_fs -> last_clst = fat_fs -> bs.fat_sectors;
+	fat_fs -> data_start = fat_fs -> bs.fat_sectors + 1;
+	lock_init(&fat_fs->write_lock);
 }
 
 /*----------------------------------------------------------------------------*/
 /* FAT handling                                                               */
 /*----------------------------------------------------------------------------*/
+
+cluster_t get_free_cluster () {
+	for (int32_t i = 1; i <= fat_fs -> fat_length; i++){
+		if (fat_get(i) == 0)
+			return i;
+	}
+	return 0;
+}
 
 /* Add a cluster to the chain.
  * If CLST is 0, start a new chain.
@@ -165,6 +180,16 @@ fat_fs_init (void) {
 cluster_t
 fat_create_chain (cluster_t clst) {
 	/* TODO: Your code goes here. */
+	cluster_t new_cluster = get_free_cluster();
+	if (new_cluster == 0)
+		return 0;
+
+	if (clst != 0) {
+		fat_put(clst, new_cluster);
+	}
+
+	fat_put(new_cluster, EOChain);
+	return new_cluster;
 }
 
 /* Remove the chain of clusters starting from CLST.
@@ -172,22 +197,39 @@ fat_create_chain (cluster_t clst) {
 void
 fat_remove_chain (cluster_t clst, cluster_t pclst) {
 	/* TODO: Your code goes here. */
+	cluster_t nclst;
+	while ((nclst = fat_get(clst)) != EOChain){
+		fat_put(clst, 0);
+		clst = nclst;
+	}
+
+	if (pclst != 0){
+		fat_put(pclst, EOChain);
+	}
+
 }
 
 /* Update a value in the FAT table. */
 void
 fat_put (cluster_t clst, cluster_t val) {
 	/* TODO: Your code goes here. */
+	ASSERT(clst > 0);
+	fat_fs->fat[clst - 1] = val;
 }
 
 /* Fetch a value in the FAT table. */
 cluster_t
 fat_get (cluster_t clst) {
 	/* TODO: Your code goes here. */
+	ASSERT(clst > 0);
+	return fat_fs->fat[clst - 1];
 }
 
 /* Covert a cluster # to a sector number. */
 disk_sector_t
 cluster_to_sector (cluster_t clst) {
 	/* TODO: Your code goes here. */
+	ASSERT(clst > 0);
+	ASSERT(clst <= fat_fs -> fat_length);
+	return (disk_sector_t) (clst + fat_fs -> data_start - 1);
 }

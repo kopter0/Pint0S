@@ -7,6 +7,8 @@
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
 
+#include "filesys/fat.h"
+
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
@@ -80,6 +82,31 @@ inode_create (disk_sector_t sector, off_t length) {
 		size_t sectors = bytes_to_sectors (length);
 		disk_inode->length = length;
 		disk_inode->magic = INODE_MAGIC;
+
+		#ifdef EFILESYS
+		static char zeros[DISK_SECTOR_SIZE];
+		cluster_t start = fat_create_chain(0);
+		if (start == 0) {
+			fat_remove_chain(start, 0);
+			free(disk_inode);
+			return false;
+		}
+		disk_inode -> start = cluster_to_sector(start);
+		disk_write(filesys_disk, disk_inode -> start, zeros);
+		for (size_t i = 1; i < sectors; i++){
+			cluster_t cur = fat_create_chain(start);
+			if (cur == 0) {
+				fat_remove_chain(disk_inode -> start, 0);
+				free(disk_inode);
+				return false;
+			}
+			disk_write(filesys_disk, cluster_to_sector(cur), zeros);
+			start = cur;
+		}
+		disk_write(filesys_disk, sector, disk_inode);
+		success = true;
+		
+		#else
 		if (free_map_allocate (sectors, &disk_inode->start)) {
 			disk_write (filesys_disk, sector, disk_inode);
 			if (sectors > 0) {
@@ -91,6 +118,7 @@ inode_create (disk_sector_t sector, off_t length) {
 			}
 			success = true; 
 		} 
+		#endif
 		free (disk_inode);
 	}
 	return success;
