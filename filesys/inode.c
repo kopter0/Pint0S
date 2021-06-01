@@ -46,10 +46,10 @@ static disk_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) {
 	#ifdef EFILESYS 
 	cluster_t curr = sector_to_cluster(inode -> sector);
-	while (pos > DISK_SECTOR_SIZE) {
+	while (pos > DISK_SECTOR_SIZE - 1) {
 		curr = fat_get(curr);
 		if (curr == EOChain)
-			return -1;
+			return 0;
 		pos -= DISK_SECTOR_SIZE;
 	}
 
@@ -286,14 +286,17 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 	while (size > 0) {
 		/* Sector to write, starting byte offset within sector. */
 		disk_sector_t sector_idx = byte_to_sector (inode, offset);
-		if (sector_idx == -1){
+		#ifdef EFILESYS
+		if (sector_idx == 0){
 			cluster_t cluster = sector_to_cluster(inode -> sector);
 			while (fat_get(cluster) != EOChain){
 				cluster = fat_get (cluster);
 			}
 			cluster_t new_cluster = fat_create_chain (cluster);
 			sector_idx = cluster_to_sector(new_cluster);
+			inode->data.length += DISK_SECTOR_SIZE;
 		}
+		#endif
 
 		int sector_ofs = offset % DISK_SECTOR_SIZE;
 
