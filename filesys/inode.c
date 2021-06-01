@@ -44,11 +44,23 @@ struct inode {
  * POS. */
 static disk_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) {
+	#ifdef EFILESYS 
+	cluster_t curr = sector_to_cluster(inode -> sector);
+	while (pos > DISK_SECTOR_SIZE) {
+		curr = fat_get(curr);
+		if (curr == EOChain)
+			return -1;
+		pos -= DISK_SECTOR_SIZE;
+	}
+
+	return cluster_to_sector(curr);
+	#else
 	ASSERT (inode != NULL);
 	if (pos < inode->data.length)
 		return inode->data.start + pos / DISK_SECTOR_SIZE;
 	else
 		return -1;
+	#endif
 }
 
 /* List of open inodes, so that opening a single inode twice
@@ -154,6 +166,9 @@ inode_open (disk_sector_t sector) {
 	inode->deny_write_cnt = 0;
 	inode->removed = false;
 	disk_read (filesys_disk, inode->sector, &inode->data);
+	#ifdef EFILESYS
+	inode->data.length = DISK_SECTOR_SIZE;
+	#endif
 	return inode;
 }
 
