@@ -56,6 +56,7 @@ byte_to_sector (const struct inode *inode, off_t pos) {
 	}
 
 	if (DISK_SECTOR_SIZE - total_length > 0) {
+		//inode -> data.length = ((inode -> data.length / DISK_SECTOR_SIZE) + 1) * DISK_SECTOR_SIZE;
 		return cluster_to_sector(curr);
 	}
 
@@ -298,7 +299,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 			}
 			cluster_t new_cluster = fat_create_chain (cluster);
 			sector_idx = cluster_to_sector(new_cluster);
-			inode->data.length += size;
+			inode->data.length += DISK_SECTOR_SIZE;
 		}
 		#endif
 
