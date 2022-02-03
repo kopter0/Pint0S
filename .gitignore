@@ -1,0 +1,10 @@
+threads/build/*
+userprog/build/*
+vm/build/*
+filesys/build/*
+.vscode/*
+test.cpp
+test
+.gdb_history
+userprog/command_to_run_test_case
+team54.tar.gz
